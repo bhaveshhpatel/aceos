@@ -8,9 +8,9 @@
 
 **North Star Metric:** Number of students who improve their GPA by ≥0.3 points OR score a 4/5 on an AP exam after 90 days of active use.
 
-**Mission:** Build the operating system for every high school student’s academic life — unifying daily grade performance, AP exam mastery, AI tutoring, and social accountability into one intelligent, adaptive platform.
+**Mission:** Build the operating system for every high school student's academic life — unifying daily grade performance, AP exam mastery, AI tutoring, and social accountability into one intelligent, adaptive platform.
 
-**The Core Belief:** Students don’t fail because they’re lazy. They fail because they don’t have a *system*. AceOS is the system.
+**The Core Belief:** Students don't fail because they're lazy. They fail because they don't have a *system*. AceOS is the system.
 
 ### 🧭 Four Founding Engineering Principles
 
@@ -23,7 +23,7 @@ These principles must be present in every sprint planning session, story groomin
 | **3. i18n & Localization Ready** | All UI strings, content schemas, and AI prompts must be structured to support multiple languages from Sprint 1. Even if we only ship English at launch, the pipes must be in place. |
 | **4. Config-Driven Feature Flags** | Every feature, subject module, provider, and content type is toggleable via a central config/feature-flag system. This enables per-subject rollouts, A/B testing, and safe incremental launches. |
 
-> **Sprint Planning Reminder:** At the start of every sprint and story grooming session, ask: *“Does this story respect all 4 founding principles? Is the subject type declared? Is the integration point abstracted? Is the string localizable? Is this feature-flagged?”* If not — the story is not ready.
+> **Sprint Planning Reminder:** At the start of every sprint and story grooming session, ask: *"Does this story respect all 4 founding principles? Is the subject type declared? Is the integration point abstracted? Is the string localizable? Is this feature-flagged?"* If not — the story is not ready.
 
 ---
 
@@ -73,8 +73,8 @@ These principles must be present in every sprint planning session, story groomin
 
 - **GradeGuard → ScoreBoost AP:** When GradeGuard detects struggling with stoichiometry in AP Chem class, it automatically flags this in ScoreBoost AP so that unit gets prioritized in the AP prep plan.
 - **StudySensei → GradeGuard:** When the AI tutor identifies a conceptual gap in integration by parts, GradeGuard schedules a 10-minute micro-review 2 days before the next Calc quiz.
-- **SmartPack → All:** Squad members’ collective performance data surfaces the most commonly missed concepts across the group.
-- **All → Student Intelligence Profile:** Every interaction, quiz, session, and essay refines the AI’s model of the student, making every recommendation sharper over time.
+- **SmartPack → All:** Squad members' collective performance data surfaces the most commonly missed concepts across the group.
+- **All → Student Intelligence Profile:** Every interaction, quiz, session, and essay refines the AI's model of the student, making every recommendation sharper over time.
 - **Subject-Type Rendering Layer → All Modules:** Detects subject context and activates the correct renderer — rich text for humanities, MathJax + canvas for STEM, audio/speech for foreign language.
 
 ---
@@ -154,7 +154,7 @@ Every feature built must be tagged against this matrix. Blank = not applicable. 
 | Feedback display | Inline text annotations | Step-by-step equation correction + diagram overlay | Pronunciation score + grammar breakdown |
 | FSRS card content | Text front/back | Formula image + rendered equation | Audio clip + target language text |
 | Diagnostic questions | MCQ + short answer | MCQ + graph interpretation + equation solve | MCQ + listening comprehension + speaking prompt |
-| Bluebook simulator | Text essay interface | Split-screen equation scratch pad | N/A (Bluebook doesn’t cover language orals) |
+| Bluebook simulator | Text essay interface | Split-screen equation scratch pad | N/A (Bluebook doesn't cover language orals) |
 | StudySensei tutor | Socratic text dialogue | Step-by-step equation walkthrough | Conversational dialogue in target language |
 | FRQ grader | Essay/DBQ/LEQ grader | FRQ calculation + diagram grader | Spoken response grader ⏳ |
 | Spaced rep card | Text card | Equation / diagram card | Audio card with speaking challenge |
@@ -205,13 +205,13 @@ interface LanguageQuestionContent extends QuestionContent {
 | **Audio Content CDN** | All language audio files stored in Cloudflare R2 with `/{locale}/{subject}/{unit}/` path structure | Sprint 8 |
 | **TTS (Text-to-Speech)** | Pluggable `ISpeechProvider` — defaults to Web Speech API; swap to ElevenLabs/Google TTS for higher quality | Phase 3 |
 
-> **Sprint Grooming Reminder:** When writing any story that touches question content, answer input, or AI grading — the story must specify `subject_type: TEXT | VISUAL | LANGUAGE`. Stories that say “build question component” without specifying subject type are **not groomed** and not sprint-ready.
+> **Sprint Grooming Reminder:** When writing any story that touches question content, answer input, or AI grading — the story must specify `subject_type: TEXT | VISUAL | LANGUAGE`. Stories that say "build question component" without specifying subject type are **not groomed** and not sprint-ready.
 
 ---
 
 ## 📦 Suite Packaging & Pricing Strategy
 
-| Tier | What’s Included | Price | Target Buyer |
+| Tier | What's Included | Price | Target Buyer |
 |---|---|---|---|
 | **Free (Starter)** | GradeGuard (1 subject), ScoreBoost AP diagnostic only | $0 | Student/organic |
 | **Student Pro** | All 4 modules, full AI features, all subject types (TEXT + VISUAL + LANGUAGE) | $24.99/mo or $179/yr | Parent/student |
@@ -261,36 +261,36 @@ interface LanguageQuestionContent extends QuestionContent {
 | **Personalized Study Plan** | Auto-generated week-by-week plan from today → 2 weeks before AP exam | ALL | P0 |
 | **VISUAL: Formula Renderer** | MathJax 3 renders all equations in STEM diagnostics; pluggable via `IMathRenderer` | VISUAL | P0 |
 | **VISUAL: Graph Question Support** | Graph interpretation questions with image rendering + MCQ overlay | VISUAL | P0 |
-| **“Where Are You” Benchmark** | Percentile rank vs. other AceOS users on same diagnostic | ALL | P1 |
+| **"Where Are You" Benchmark** | Percentile rank vs. other AceOS users on same diagnostic | ALL | P1 |
 | **Multi-Subject Dashboard** | Student tracks 2+ AP subjects simultaneously | ALL | P1 |
 
 **Acceptance Criteria for Epic 1.1:** A student completes diagnostic → sees heatmap + predicted score + 8-week plan within 3 minutes. A VISUAL subject student sees properly rendered equations and graph questions. No plain-text fallback for VISUAL subjects.
 
-> 🚧 **Sprint Grooming Note:** Story for “50-Question Diagnostic” must be split into two sub-stories: one for TEXT mode, one for VISUAL mode. They share the same FSRS schema but different content renderers. Do not combine into one story — they have different acceptance criteria and different content author workflows.
+> 🚧 **Sprint Grooming Note:** Story for "50-Question Diagnostic" must be split into two sub-stories: one for TEXT mode, one for VISUAL mode. They share the same FSRS schema but different content renderers. Do not combine into one story — they have different acceptance criteria and different content author workflows.
 
 ---
 
 #### 🔷 Epic 1.2 — Adaptive Practice Engine with FSRS Spaced Repetition (Sprint 3–6 | Weeks 5–12)
 `subject_types: TEXT, VISUAL` | *LANGUAGE (audio cards): Phase 3*
 
-Spaced repetition using the **FSRS algorithm** is the gold standard — it produces 20–30% better retention per study hour than older SM-2 approaches. This is not flashcards — it’s an intelligent question-delivery engine that renders content differently based on `SubjectType`.
+Spaced repetition using the **FSRS algorithm** is the gold standard — it produces 20–30% better retention per study hour than older SM-2 approaches. This is not flashcards — it's an intelligent question-delivery engine that renders content differently based on `SubjectType`.
 
 | Feature | Description | Subject Type | Priority |
 |---|---|---|---|
 | **FSRS Adaptive Quiz Engine** | Questions scheduled at optimal intervals (1d → 3d → 1wk → 2wk) based on recall accuracy; pluggable via `IFSRSProvider` | ALL | P0 |
 | **Concept-Level Tagging** | Every question tagged to specific AP unit + College Board learning objective + `SubjectType` | ALL | P0 |
-| **TEXT: “Why Wrong?” Explainer** | After incorrect answer: AI explains concept from first principles using Socratic stepping | TEXT | P0 |
+| **TEXT: "Why Wrong?" Explainer** | After incorrect answer: AI explains concept from first principles using Socratic stepping | TEXT | P0 |
 | **VISUAL: Step-by-Step Solution** | After incorrect STEM answer: AI renders step-by-step solution with MathJax equations and annotated diagrams | VISUAL | P0 |
 | **VISUAL: Drawing Pad Review** | Student can sketch a graph or diagram as part of answer; AI provides annotated overlay showing correct vs. submitted | VISUAL | P1 |
-| **Daily Review Queue** | “You have 12 cards due today across Calc AB and APUSH” — cards rendered per subject type | ALL | P0 |
+| **Daily Review Queue** | "You have 12 cards due today across Calc AB and APUSH" — cards rendered per subject type | ALL | P0 |
 | **Performance Streak** | Daily study streak tracker with science-backed nudges | ALL | P1 |
 | **Weak Concept Drill Mode** | Rapid-fire session targeting Red-zone units; VISUAL subjects use equation-focused drill sequences | ALL | P1 |
-| **Progress vs. Score Projection** | Live graph: “Based on this week’s performance, your projected score moved from 3 → 3.4” | ALL | P1 |
+| **Progress vs. Score Projection** | Live graph: "Based on this week's performance, your projected score moved from 3 → 3.4" | ALL | P1 |
 | **Interleaving Mode** | Mixed-subject sessions every 5 questions — proven +23% long-term retention over blocked study | ALL | P2 |
 
 **Key Technical Note:** FSRS (Free Spaced Repetition Scheduler) is open-source and research-validated. Implement FSRS-5 variant via `ts-fsrs`. The FSRS scheduler is subject-type-agnostic — it only scores recall; the renderer handles display.
 
-> 🚧 **Sprint Grooming Note:** “Why Wrong? Explainer” must be split: TEXT version (LLM text response) vs. VISUAL version (LLM generates LaTeX step-by-step + optional diagram). These require different AI prompt templates and different UI components. Separate stories, shared interface.
+> 🚧 **Sprint Grooming Note:** "Why Wrong? Explainer" must be split: TEXT version (LLM text response) vs. VISUAL version (LLM generates LaTeX step-by-step + optional diagram). These require different AI prompt templates and different UI components. Separate stories, shared interface.
 
 ---
 
@@ -320,7 +320,7 @@ This is the **single biggest market gap** in AP prep. Every student fears the fr
 ---
 
 #### 🔷 Epic 1.4 — Bluebook™ Digital Exam Simulator (Sprint 7–9 | Weeks 13–18)
-`subject_types: TEXT, VISUAL` | *LANGUAGE: N/A (Bluebook doesn’t cover AP language orals)*
+`subject_types: TEXT, VISUAL` | *LANGUAGE: N/A (Bluebook doesn't cover AP language orals)*
 
 AP exams are now fully/hybrid digital via Bluebook. No competitor has built a proper Bluebook-style interface. This is a 6-month first-mover window.
 
@@ -368,7 +368,7 @@ AP exams are now fully/hybrid digital via Bluebook. No competitor has built a pr
 | Sprint 2 | 3–4 | Diagnostic engine (TEXT) + Unit Heatmap | 50Q TEXT diagnostic live for AP Lang, AP Psych, AP US History | TEXT |
 | Sprint 3 | 5–6 | Diagnostic engine (VISUAL) + MathJax renderer + Score predictor + Study plan generator | 50Q VISUAL diagnostic live for AP Calc AB; personalized 8-week plan | VISUAL |
 | Sprint 4 | 7–8 | FSRS engine + Daily review queue (TEXT + VISUAL) | Adaptive quiz system live for both subject types | TEXT + VISUAL |
-| Sprint 5 | 9–10 | TEXT “Why Wrong?” explainer + VISUAL step-by-step solution + Weak drill mode | Full practice loop complete for both subject types | TEXT + VISUAL |
+| Sprint 5 | 9–10 | TEXT "Why Wrong?" explainer + VISUAL step-by-step solution + Weak drill mode | Full practice loop complete for both subject types | TEXT + VISUAL |
 | Sprint 6 | 11–12 | FRQ grader MVP — TEXT (AP Lang essay + APUSH DBQ) + VISUAL (AP Calc FRQ + Equation OCR) | First AI-graded FRQ submissions across both subject types | TEXT + VISUAL |
 | Sprint 7 | 13–14 | Bluebook simulator — TEXT exam interface (MCQ + essay section) | Timed digital TEXT exam live | TEXT |
 | Sprint 8 | 15–16 | Bluebook simulator — VISUAL exam interface (MCQ + equation scratch pad + graph tools) | Full exam simulator live for VISUAL subjects | VISUAL |
@@ -485,4 +485,146 @@ aceos/
 
 ---
 
-*(Sections continue — next: Phase 2 GradeGuard →)*
+## 🗓️ PHASE 2: Expand (Months 7–12)
+### Launch GradeGuard — Own the Daily GPA Layer
+
+**Strategic Logic:** Phase 1 proves we can own the AP season. Phase 2 makes AceOS sticky 365 days a year. GradeGuard connects every class assignment, quiz, and test to the student's GPA arc — and bridges daily classroom performance directly into ScoreBoost AP prep. A student who uses GradeGuard daily is 4x more likely to retain the AP prep habit year-round.
+
+---
+
+### Phase 2 OKRs
+
+**Objective 1:** Make AceOS a daily habit — not just an AP season tool.
+- KR1: 60% of Phase 1 users activate GradeGuard within 30 days of Phase 2 launch
+- KR2: Average session frequency increases from 3x/week → 5x/week for GradeGuard users
+- KR3: 7-day retention rate improves from 45% → 65% after GradeGuard activation
+
+**Objective 2:** Drive GPA outcomes that create word-of-mouth.
+- KR1: 40% of active GradeGuard users improve GPA by ≥0.3 points within one semester
+- KR2: Parent satisfaction score ≥ 4.5/5 on weekly progress email NPS
+- KR3: 200+ parent-driven referrals tracked via referral attribution by Month 12
+
+**Objective 3:** Grow MRR through expanded retention and upsells.
+- KR1: $50,000 MRR by Month 9
+- KR2: $100,000 MRR by Month 12
+- KR3: Annual plan conversion rate ≥ 30% of new Pro subscribers
+
+---
+
+### Phase 2 Epics & Feature Breakdown
+
+#### 🔷 Epic 2.1 — Grade Tracker & GPA Calculator (Sprint 13–14 | Weeks 25–28)
+`subject_types: ALL` | *GradeGuard is subject-type-agnostic at the grade-entry layer; subject type matters at the study recommendation layer*
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Class Setup** | Student adds classes: name, teacher, grading scale (weighted/unweighted), grade categories (tests, HW, quizzes) with custom weights | ALL | P0 |
+| **Assignment Entry** | Log grades per assignment; system auto-calculates category average and running GPA | ALL | P0 |
+| **Live GPA Calculator** | Real-time weighted/unweighted GPA calculation across all classes; supports 4.0 and 5.0 scale | ALL | P0 |
+| **GPA Arc Chart** | Visual chart: current GPA trajectory plotted against target GPA — "You need a 91 on your next Calc test to hit 3.8" | ALL | P0 |
+| **What-If Grade Simulator** | "What grade do I need on the final to get an A?" — instant scenario calculation | ALL | P0 |
+| **Grade Import (Photo)** | Student photos a graded test/paper; OCR extracts score; auto-logs to correct class via `IEquationOCRProvider` | ALL | P1 |
+| **LMS Integration (Phase 4)** | Canvas, Schoology, Google Classroom grade sync via `ILMSProvider` | ALL | Phase 4 |
+| **Grade Trend Alerts** | "Your AP Chem grade dropped 8 points this week" — triggers ScoreBoost AP focus adjustment | ALL | P0 |
+| **Semester GPA Projection** | Projected end-of-semester GPA based on current trajectory | ALL | P1 |
+
+**Acceptance Criteria for Epic 2.1:** Student adds 5 classes → logs 10 grades → sees live GPA + arc chart + what-if scenario in under 2 minutes. Grade trend alert fires within 24 hours of a significant grade drop.
+
+> 🚧 **Sprint Grooming Note:** "Grade Import (Photo)" depends on `IEquationOCRProvider` already defined in Phase 1 for VISUAL FRQ grading — reuse the same provider interface. Do not create a new OCR abstraction. Story is blocked until `IEquationOCRProvider` is confirmed live from Phase 1.
+
+---
+
+#### 🔷 Epic 2.2 — AI Study Recommendation Engine (Sprint 14–15 | Weeks 27–30)
+`subject_types: TEXT, VISUAL, LANGUAGE`
+
+This is where GradeGuard and ScoreBoost AP become one brain. The SIP (Student Intelligence Profile) reads GradeGuard signals and adjusts AP prep priorities in real time.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Cross-Module Signal Bridge** | GradeGuard grade drops automatically flag corresponding AP units in ScoreBoost; SIP connects classroom performance to exam readiness | ALL | P0 |
+| **Daily Study Agenda** | "Today: 20 min Calc AB FSRS review (3 cards due) + 10 min re-read Unit 4 notes (grade dropped)" — personalized per subject type | ALL | P0 |
+| **Micro-Review Scheduler** | When GradeGuard detects an upcoming test in 48h, schedules a 15-min targeted review session pulling from ScoreBoost AP question bank | ALL | P0 |
+| **TEXT: Essay Weakness Detector** | Detects pattern of low thesis scores in TEXT subjects → schedules a StudySensei Socratic session on argumentation | TEXT | P1 |
+| **VISUAL: Concept Gap Detector** | Detects pattern of wrong equation setups in VISUAL subjects → queues VISUAL step-by-step drill sessions | VISUAL | P1 |
+| **Burnout Risk Index** | SIP monitors study load vs. grade trend; alerts student + parent when burnout risk is high | ALL | P1 |
+| **Weekly Intelligent Summary** | Auto-generated weekly email to parent: GPA status, AP score projection, top 3 weak concepts, study time logged | ALL | P0 |
+| **Study Time Tracker** | Logs active time in app per subject per day; surfaces "You studied 3.2 hrs this week — here's your efficiency score" | ALL | P1 |
+
+> 🚧 **Sprint Grooming Note:** "Cross-Module Signal Bridge" is a backend-first story — it requires a `signals` table in the DB and a pub/sub event pattern (Supabase Realtime or pg_notify) before any UI can be built. This story must be groomed as two sub-stories: (1) backend signal emission, (2) frontend signal consumption. Do not combine.
+
+---
+
+#### 🔷 Epic 2.3 — Parent Dashboard & Accountability Layer (Sprint 15–16 | Weeks 29–32)
+`subject_types: ALL`
+
+Parents are the **paying customer** in 80% of high school edtech purchases. Giving parents visibility without creating surveillance anxiety is the product design challenge here.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Parent Account Link** | Parent creates account and links to student via invite code; student controls what data is visible | ALL | P0 |
+| **Parent Dashboard** | High-level view: GPA trend, AP score projection, weekly study time, top 3 weak concepts | ALL | P0 |
+| **Weekly Progress Email** | Auto-sent every Sunday via `IEmailProvider`; includes GPA delta, AP projection, and one actionable insight | ALL | P0 |
+| **Grade Alert Notifications** | Parent notified via email/push when grade drops >5 points in any class; pluggable via `INotificationProvider` | ALL | P1 |
+| **Study Time Visibility** | Parent sees weekly study hours logged; no granular session surveillance — summary only | ALL | P1 |
+| **Referral Program** | "Refer another parent, get 1 month free" — tracked via referral attribution system | ALL | P1 |
+| **Parent-Student Shared Goals** | Parent and student co-set GPA and AP score targets; AI adjusts recommendations to hit shared goal | ALL | P2 |
+
+**Design Note:** The parent dashboard must be explicitly framed as *insight*, not *surveillance*. Student controls visibility toggles. This is a trust feature — not a tracking feature. Copy and UX must reflect this.
+
+> 🚧 **Sprint Grooming Note:** "Weekly Progress Email" requires the `IEmailProvider` and the `INotificationProvider` interfaces already live from Phase 1. Reuse existing providers — do not create new email abstractions. Template must be i18n-ready (`/messages/en.json` keys) from day one.
+
+---
+
+#### 🔷 Epic 2.4 — Student Intelligence Profile v1.0 (Sprint 16–17 | Weeks 31–34)
+`subject_types: ALL`
+
+The SIP is the core moat of AceOS. By Phase 2, it has 6+ months of data across AP diagnostics, FRQ submissions, daily practice, grade trends, and study patterns. Version 1.0 makes SIP actionable — it stops being a data store and starts being a recommendation engine.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **SIP Dashboard** | Student-facing view of their own intelligence profile: learning pace, strongest/weakest subject types, study pattern analysis, burnout risk | ALL | P0 |
+| **Adaptive Difficulty Engine** | FSRS question difficulty auto-adjusts based on SIP — faster learners get harder questions sooner | ALL | P0 |
+| **Subject-Type Learning Style Tag** | SIP tags student as "VISUAL-dominant" or "TEXT-dominant" based on comparative performance; adjusts study plan weightings | ALL | P1 |
+| **AP Score Confidence Interval** | "Based on your performance, you have a 73% chance of scoring a 4 or 5 on AP Calc AB" — updates weekly | ALL | P0 |
+| **Long-Term GPA Projection** | SIP projects GPA trajectory through end of junior year based on current trend | ALL | P1 |
+| **Concept Knowledge Graph** | Visual graph of all AP concepts — green = mastered, yellow = shaky, red = unknown; edges show prerequisite relationships | ALL | P2 |
+| **SIP API (Internal)** | Clean internal API for all modules to read/write SIP data; no module reads raw SIP tables directly | ALL | P0 |
+
+**Technical Note:** The SIP API must be a proper internal service boundary — not a shared table that modules query directly. Every read/write goes through `lib/sip/SIPService.ts`. This prevents SIP from becoming a spaghetti dependency as the suite grows.
+
+> 🚧 **Sprint Grooming Note:** "SIP API (Internal)" is a **blocking story** for every other SIP feature in this epic. It must be completed first. The SIP schema was seeded in Phase 1 (Epic 1.5) — Phase 2 formalizes it into a proper service layer.
+
+---
+
+#### 🔷 Epic 2.5 — GradeGuard Mobile PWA (Sprint 17–18 | Weeks 33–36)
+`subject_types: ALL`
+
+Students log grades on their phones — immediately after getting a test back in class. The web app must be PWA-ready with offline grade entry and push notifications.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **PWA Install Prompt** | "Add AceOS to Home Screen" prompt on mobile; service worker caches core shell | ALL | P0 |
+| **Offline Grade Entry** | Student logs grade offline; syncs to Supabase when back online via background sync | ALL | P0 |
+| **Push Notifications (Mobile)** | Daily study reminder, grade drop alert, streak reminder via `INotificationProvider` (browser push); swap to FCM for native app later | ALL | P0 |
+| **Mobile-Optimized Grade View** | Touch-friendly grade entry form; swipe to delete/edit assignments | ALL | P0 |
+| **Quick-Log Widget** | One-tap grade entry from home screen: class → score → done in 3 taps | ALL | P1 |
+| **Biometric Auth** | Face ID / fingerprint login on supported devices via browser WebAuthn API | ALL | P1 |
+
+> 🚧 **Sprint Grooming Note:** PWA does NOT mean native app. Do not scope React Native in Phase 2. The PWA covers 90% of mobile use cases (grade logging, review queue, notifications) at zero additional build cost. Native iOS/Android is Phase 5 if PWA engagement data supports it.
+
+---
+
+### Phase 2 — Sprint Schedule
+
+| Sprint | Weeks | Focus | Deliverable | Subject Types Active |
+|---|---|---|---|---|
+| Sprint 13 | 25–26 | GradeGuard class setup + assignment entry + live GPA calculator | Grade tracker live; student can log grades and see GPA | ALL |
+| Sprint 14 | 27–28 | GPA arc chart + what-if simulator + grade trend alerts + cross-module signal bridge (backend) | GPA arc visible; alert fires on grade drop; SIP signal bridge live | ALL |
+| Sprint 15 | 29–30 | Daily study agenda + micro-review scheduler + cross-module signal bridge (frontend) | Unified daily agenda combining GradeGuard + ScoreBoost AP signals | ALL |
+| Sprint 16 | 31–32 | Parent dashboard + weekly progress email + parent account link | Parents can view student progress; weekly email fires every Sunday | ALL |
+| Sprint 17 | 33–34 | SIP v1.0 — adaptive difficulty + AP score confidence interval + SIP API | SIP fully operational as internal service; confidence intervals live | ALL |
+| Sprint 18 | 35–36 | GradeGuard PWA — offline grade entry + push notifications + mobile UI polish | PWA installable; offline grade sync works; push notifications fire | ALL |
+
+---
+
+*(Sections continue — next: Phase 3 StudySensei + LANGUAGE mode →)*
