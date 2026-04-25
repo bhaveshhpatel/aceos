@@ -222,4 +222,101 @@ interface LanguageQuestionContent extends QuestionContent {
 
 ---
 
+## 🗓️ PHASE 1: Beachhead (Months 1–6)
+### Build ScoreBoost AP — Own the AP 5 Market
+
+**Strategic Logic:** AP exam season is May 4–15 every year. Students are most desperate, most willing to pay, and most likely to evangelize if they score a 5. Launch with the 6 highest-enrollment AP exams: **AP Calc AB/BC** (VISUAL), **AP Bio** (VISUAL), **AP US History** (TEXT), **AP Lang** (TEXT), **AP Psych** (TEXT) — covering both TEXT and VISUAL subject types at launch. LANGUAGE mode (AP Spanish etc.) added in Phase 3.
+
+---
+
+### Phase 1 OKRs
+
+**Objective 1:** Launch a product that meaningfully improves AP scores before May 2027 exams.
+- KR1: 500 students complete a full AP diagnostic within 60 days of launch
+- KR2: 70% of active users show measurable improvement (≥10% score gain) on practice tests after 4 weeks
+- KR3: Average predicted AP score improves from 2.8 → 3.6 for active users by Week 8
+
+**Objective 2:** Validate willingness to pay before building further.
+- KR1: $5,000 MRR by Month 3
+- KR2: $20,000 MRR by Month 6
+- KR3: Net Promoter Score ≥ 55 by end of Phase 1
+
+**Objective 3:** Establish the Student Intelligence Profile (SIP) data foundation.
+- KR1: Collect ≥ 10,000 diagnostic question responses to train SIP model
+- KR2: SIP accuracy validated — predicted vs. actual practice test score within ±0.4 points for 75% of users
+
+---
+
+### Phase 1 Epics & Feature Breakdown
+
+#### 🔷 Epic 1.1 — AP Diagnostic Engine (Sprint 1–3 | Weeks 1–6)
+`subject_types: TEXT, VISUAL` | *LANGUAGE mode: Phase 3*
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Subject Selector** | Student picks AP subject(s); top 6 at launch — system auto-tags each subject with its `SubjectType` | ALL | P0 |
+| **50-Question Diagnostic** | College Board-aligned questions; TEXT subjects use rich-text MCQ; VISUAL subjects use MathJax-rendered equations + graph interpretation questions | TEXT + VISUAL | P0 |
+| **Unit Heatmap** | Visual grid of all AP units colored Green/Yellow/Red based on diagnostic performance | ALL | P0 |
+| **Predicted Score (1–5)** | Immediate post-diagnostic score prediction using weighted performance model | ALL | P0 |
+| **Personalized Study Plan** | Auto-generated week-by-week plan from today → 2 weeks before AP exam | ALL | P0 |
+| **VISUAL: Formula Renderer** | MathJax 3 renders all equations in STEM diagnostics; pluggable via `IMathRenderer` | VISUAL | P0 |
+| **VISUAL: Graph Question Support** | Graph interpretation questions with image rendering + MCQ overlay | VISUAL | P0 |
+| **"Where Are You" Benchmark** | Percentile rank vs. other AceOS users on same diagnostic | ALL | P1 |
+| **Multi-Subject Dashboard** | Student tracks 2+ AP subjects simultaneously | ALL | P1 |
+
+**Acceptance Criteria for Epic 1.1:** A student completes diagnostic → sees heatmap + predicted score + 8-week plan within 3 minutes. A VISUAL subject student sees properly rendered equations and graph questions. No plain-text fallback for VISUAL subjects.
+
+> 🚧 **Sprint Grooming Note:** Story for "50-Question Diagnostic" must be split into two sub-stories: one for TEXT mode, one for VISUAL mode. They share the same FSRS schema but different content renderers. Do not combine into one story — they have different acceptance criteria and different content author workflows.
+
+---
+
+#### 🔷 Epic 1.2 — Adaptive Practice Engine with FSRS Spaced Repetition (Sprint 3–6 | Weeks 5–12)
+`subject_types: TEXT, VISUAL` | *LANGUAGE (audio cards): Phase 3*
+
+Spaced repetition using the **FSRS algorithm** is the gold standard — it produces 20–30% better retention per study hour than older SM-2 approaches. This is not flashcards — it's an intelligent question-delivery engine that renders content differently based on `SubjectType`.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **FSRS Adaptive Quiz Engine** | Questions scheduled at optimal intervals (1d → 3d → 1wk → 2wk) based on recall accuracy; pluggable via `IFSRSProvider` | ALL | P0 |
+| **Concept-Level Tagging** | Every question tagged to specific AP unit + College Board learning objective + `SubjectType` | ALL | P0 |
+| **TEXT: "Why Wrong?" Explainer** | After incorrect answer: AI explains concept from first principles using Socratic stepping | TEXT | P0 |
+| **VISUAL: Step-by-Step Solution** | After incorrect STEM answer: AI renders step-by-step solution with MathJax equations and annotated diagrams | VISUAL | P0 |
+| **VISUAL: Drawing Pad Review** | Student can sketch a graph or diagram as part of answer; AI provides annotated overlay showing correct vs. submitted | VISUAL | P1 |
+| **Daily Review Queue** | "You have 12 cards due today across Calc AB and APUSH" — cards rendered per subject type | ALL | P0 |
+| **Performance Streak** | Daily study streak tracker with science-backed nudges | ALL | P1 |
+| **Weak Concept Drill Mode** | Rapid-fire session targeting Red-zone units; VISUAL subjects use equation-focused drill sequences | ALL | P1 |
+| **Progress vs. Score Projection** | Live graph: "Based on this week's performance, your projected score moved from 3 → 3.4" | ALL | P1 |
+| **Interleaving Mode** | Mixed-subject sessions every 5 questions — proven +23% long-term retention over blocked study | ALL | P2 |
+
+**Key Technical Note:** FSRS (Free Spaced Repetition Scheduler) is open-source and research-validated. Implement FSRS-5 variant via `ts-fsrs`. The FSRS scheduler is subject-type-agnostic — it only scores recall; the renderer handles display.
+
+> 🚧 **Sprint Grooming Note:** "Why Wrong? Explainer" must be split: TEXT version (LLM text response) vs. VISUAL version (LLM generates LaTeX step-by-step + optional diagram). These require different AI prompt templates and different UI components. Separate stories, shared interface.
+
+---
+
+#### 🔷 Epic 1.3 — FRQ / DBQ AI Grader (Sprint 5–8 | Weeks 9–16)
+`subject_types: TEXT (Phase 1), VISUAL (Phase 1), LANGUAGE (Phase 3)`
+
+This is the **single biggest market gap** in AP prep. Every student fears the free-response section. The grader must be subject-type-aware — an AP Calc FRQ is fundamentally different from an AP US History DBQ.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **FRQ Submission Portal** | Student types or uploads handwritten FRQ; VISUAL subjects support photo upload of handwritten math work | TEXT + VISUAL | P0 |
+| **TEXT: Rubric-Aligned Essay Grader** | AI scores AP Lang synthesis, AP History DBQ/LEQ against exact College Board rubric; line-by-line feedback on thesis, evidence, analysis | TEXT | P0 |
+| **VISUAL: Rubric-Aligned STEM Grader** | Multimodal AI (vision + text) evaluates AP Calc/Chem/Physics FRQ; scores both written setup AND mathematical execution; flags incorrect steps | VISUAL | P0 |
+| **VISUAL: Equation OCR** | Handwritten math photo → OCR → structured equation → AI grading pipeline; pluggable via `IEquationOCRProvider` (default: GPT-4o Vision) | VISUAL | P0 |
+| **Line-by-Line Feedback** | Actionable feedback per rubric point; VISUAL feedback includes annotated equation corrections | ALL | P0 |
+| **Model Response** | Post-feedback: high-scoring model response with annotations; VISUAL shows fully worked solution with MathJax | ALL | P0 |
+| **Revision Loop** | Revise and resubmit for a second score — tracks improvement delta | ALL | P1 |
+| **FRQ Score History** | Timeline of FRQ scores per subject | ALL | P1 |
+| **AP-Specific Prompt Library** | 200+ past AP FRQ prompts catalogued by year and unit; tagged by `SubjectType` | ALL | P1 |
+| **Voice Dictation (TEXT subjects)** | Student speaks TEXT response; AI transcribes and grades via `ISpeechProvider` | TEXT | P2 |
+| **LANGUAGE: Spoken Response Grader** | STT pipeline + LLM grammar/vocab/fluency scorer for AP Spanish speaking FRQ | LANGUAGE | Phase 3 |
+
+**AI Implementation Note:** Use multimodal LLM (GPT-4o or Gemini 1.5 Pro) for VISUAL grading — must support image input. TEXT grading can use text-only models (cheaper). Route by `subject_type` at the provider layer — never hardcode model selection in business logic.
+
+> 🚧 **Sprint Grooming Note:** FRQ Grader is three separate epics in disguise: TEXT grader, VISUAL grader, LANGUAGE grader. Phase 1 ships TEXT + VISUAL. Each has its own AI prompt template, its own rubric schema, and its own UI input component. Stories must not be combined across subject types.
+
+---
+
 *(Sections continue below — pushed incrementally)*
