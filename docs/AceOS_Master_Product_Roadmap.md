@@ -8,9 +8,9 @@
 
 **North Star Metric:** Number of students who improve their GPA by ≥0.3 points OR score a 4/5 on an AP exam after 90 days of active use.
 
-**Mission:** Build the operating system for every high school student's academic life — unifying daily grade performance, AP exam mastery, AI tutoring, and social accountability into one intelligent, adaptive platform.
+**Mission:** Build the operating system for every high school student’s academic life — unifying daily grade performance, AP exam mastery, AI tutoring, and social accountability into one intelligent, adaptive platform.
 
-**The Core Belief:** Students don't fail because they're lazy. They fail because they don't have a *system*. AceOS is the system.
+**The Core Belief:** Students don’t fail because they’re lazy. They fail because they don’t have a *system*. AceOS is the system.
 
 ### 🧭 Four Founding Engineering Principles
 
@@ -23,7 +23,7 @@ These principles must be present in every sprint planning session, story groomin
 | **3. i18n & Localization Ready** | All UI strings, content schemas, and AI prompts must be structured to support multiple languages from Sprint 1. Even if we only ship English at launch, the pipes must be in place. |
 | **4. Config-Driven Feature Flags** | Every feature, subject module, provider, and content type is toggleable via a central config/feature-flag system. This enables per-subject rollouts, A/B testing, and safe incremental launches. |
 
-> **Sprint Planning Reminder:** At the start of every sprint and story grooming session, ask: *"Does this story respect all 4 founding principles? Is the subject type declared? Is the integration point abstracted? Is the string localizable? Is this feature-flagged?"* If not — the story is not ready.
+> **Sprint Planning Reminder:** At the start of every sprint and story grooming session, ask: *“Does this story respect all 4 founding principles? Is the subject type declared? Is the integration point abstracted? Is the string localizable? Is this feature-flagged?”* If not — the story is not ready.
 
 ---
 
@@ -73,8 +73,8 @@ These principles must be present in every sprint planning session, story groomin
 
 - **GradeGuard → ScoreBoost AP:** When GradeGuard detects struggling with stoichiometry in AP Chem class, it automatically flags this in ScoreBoost AP so that unit gets prioritized in the AP prep plan.
 - **StudySensei → GradeGuard:** When the AI tutor identifies a conceptual gap in integration by parts, GradeGuard schedules a 10-minute micro-review 2 days before the next Calc quiz.
-- **SmartPack → All:** Squad members' collective performance data surfaces the most commonly missed concepts across the group.
-- **All → Student Intelligence Profile:** Every interaction, quiz, session, and essay refines the AI's model of the student, making every recommendation sharper over time.
+- **SmartPack → All:** Squad members’ collective performance data surfaces the most commonly missed concepts across the group.
+- **All → Student Intelligence Profile:** Every interaction, quiz, session, and essay refines the AI’s model of the student, making every recommendation sharper over time.
 - **Subject-Type Rendering Layer → All Modules:** Detects subject context and activates the correct renderer — rich text for humanities, MathJax + canvas for STEM, audio/speech for foreign language.
 
 ---
@@ -205,13 +205,13 @@ interface LanguageQuestionContent extends QuestionContent {
 | **Audio Content CDN** | All language audio files stored in Cloudflare R2 with `/{locale}/{subject}/{unit}/` path structure | Sprint 8 |
 | **TTS (Text-to-Speech)** | Pluggable `ISpeechProvider` — defaults to Web Speech API; swap to ElevenLabs/Google TTS for higher quality | Phase 3 |
 
-> **Sprint Grooming Reminder:** When writing any story that touches question content, answer input, or AI grading — the story must specify `subject_type: TEXT | VISUAL | LANGUAGE`. Stories that say "build question component" without specifying subject type are **not groomed** and not sprint-ready.
+> **Sprint Grooming Reminder:** When writing any story that touches question content, answer input, or AI grading — the story must specify `subject_type: TEXT | VISUAL | LANGUAGE`. Stories that say “build question component” without specifying subject type are **not groomed** and not sprint-ready.
 
 ---
 
 ## 📦 Suite Packaging & Pricing Strategy
 
-| Tier | What's Included | Price | Target Buyer |
+| Tier | What’s Included | Price | Target Buyer |
 |---|---|---|---|
 | **Free (Starter)** | GradeGuard (1 subject), ScoreBoost AP diagnostic only | $0 | Student/organic |
 | **Student Pro** | All 4 modules, full AI features, all subject types (TEXT + VISUAL + LANGUAGE) | $24.99/mo or $179/yr | Parent/student |
@@ -261,36 +261,36 @@ interface LanguageQuestionContent extends QuestionContent {
 | **Personalized Study Plan** | Auto-generated week-by-week plan from today → 2 weeks before AP exam | ALL | P0 |
 | **VISUAL: Formula Renderer** | MathJax 3 renders all equations in STEM diagnostics; pluggable via `IMathRenderer` | VISUAL | P0 |
 | **VISUAL: Graph Question Support** | Graph interpretation questions with image rendering + MCQ overlay | VISUAL | P0 |
-| **"Where Are You" Benchmark** | Percentile rank vs. other AceOS users on same diagnostic | ALL | P1 |
+| **“Where Are You” Benchmark** | Percentile rank vs. other AceOS users on same diagnostic | ALL | P1 |
 | **Multi-Subject Dashboard** | Student tracks 2+ AP subjects simultaneously | ALL | P1 |
 
 **Acceptance Criteria for Epic 1.1:** A student completes diagnostic → sees heatmap + predicted score + 8-week plan within 3 minutes. A VISUAL subject student sees properly rendered equations and graph questions. No plain-text fallback for VISUAL subjects.
 
-> 🚧 **Sprint Grooming Note:** Story for "50-Question Diagnostic" must be split into two sub-stories: one for TEXT mode, one for VISUAL mode. They share the same FSRS schema but different content renderers. Do not combine into one story — they have different acceptance criteria and different content author workflows.
+> 🚧 **Sprint Grooming Note:** Story for “50-Question Diagnostic” must be split into two sub-stories: one for TEXT mode, one for VISUAL mode. They share the same FSRS schema but different content renderers. Do not combine into one story — they have different acceptance criteria and different content author workflows.
 
 ---
 
 #### 🔷 Epic 1.2 — Adaptive Practice Engine with FSRS Spaced Repetition (Sprint 3–6 | Weeks 5–12)
 `subject_types: TEXT, VISUAL` | *LANGUAGE (audio cards): Phase 3*
 
-Spaced repetition using the **FSRS algorithm** is the gold standard — it produces 20–30% better retention per study hour than older SM-2 approaches. This is not flashcards — it's an intelligent question-delivery engine that renders content differently based on `SubjectType`.
+Spaced repetition using the **FSRS algorithm** is the gold standard — it produces 20–30% better retention per study hour than older SM-2 approaches. This is not flashcards — it’s an intelligent question-delivery engine that renders content differently based on `SubjectType`.
 
 | Feature | Description | Subject Type | Priority |
 |---|---|---|---|
 | **FSRS Adaptive Quiz Engine** | Questions scheduled at optimal intervals (1d → 3d → 1wk → 2wk) based on recall accuracy; pluggable via `IFSRSProvider` | ALL | P0 |
 | **Concept-Level Tagging** | Every question tagged to specific AP unit + College Board learning objective + `SubjectType` | ALL | P0 |
-| **TEXT: "Why Wrong?" Explainer** | After incorrect answer: AI explains concept from first principles using Socratic stepping | TEXT | P0 |
+| **TEXT: “Why Wrong?” Explainer** | After incorrect answer: AI explains concept from first principles using Socratic stepping | TEXT | P0 |
 | **VISUAL: Step-by-Step Solution** | After incorrect STEM answer: AI renders step-by-step solution with MathJax equations and annotated diagrams | VISUAL | P0 |
 | **VISUAL: Drawing Pad Review** | Student can sketch a graph or diagram as part of answer; AI provides annotated overlay showing correct vs. submitted | VISUAL | P1 |
-| **Daily Review Queue** | "You have 12 cards due today across Calc AB and APUSH" — cards rendered per subject type | ALL | P0 |
+| **Daily Review Queue** | “You have 12 cards due today across Calc AB and APUSH” — cards rendered per subject type | ALL | P0 |
 | **Performance Streak** | Daily study streak tracker with science-backed nudges | ALL | P1 |
 | **Weak Concept Drill Mode** | Rapid-fire session targeting Red-zone units; VISUAL subjects use equation-focused drill sequences | ALL | P1 |
-| **Progress vs. Score Projection** | Live graph: "Based on this week's performance, your projected score moved from 3 → 3.4" | ALL | P1 |
+| **Progress vs. Score Projection** | Live graph: “Based on this week’s performance, your projected score moved from 3 → 3.4” | ALL | P1 |
 | **Interleaving Mode** | Mixed-subject sessions every 5 questions — proven +23% long-term retention over blocked study | ALL | P2 |
 
 **Key Technical Note:** FSRS (Free Spaced Repetition Scheduler) is open-source and research-validated. Implement FSRS-5 variant via `ts-fsrs`. The FSRS scheduler is subject-type-agnostic — it only scores recall; the renderer handles display.
 
-> 🚧 **Sprint Grooming Note:** "Why Wrong? Explainer" must be split: TEXT version (LLM text response) vs. VISUAL version (LLM generates LaTeX step-by-step + optional diagram). These require different AI prompt templates and different UI components. Separate stories, shared interface.
+> 🚧 **Sprint Grooming Note:** “Why Wrong? Explainer” must be split: TEXT version (LLM text response) vs. VISUAL version (LLM generates LaTeX step-by-step + optional diagram). These require different AI prompt templates and different UI components. Separate stories, shared interface.
 
 ---
 
@@ -319,4 +319,64 @@ This is the **single biggest market gap** in AP prep. Every student fears the fr
 
 ---
 
-*(Sections continue below — pushed incrementally)*
+#### 🔷 Epic 1.4 — Bluebook™ Digital Exam Simulator (Sprint 7–9 | Weeks 13–18)
+`subject_types: TEXT, VISUAL` | *LANGUAGE: N/A (Bluebook doesn’t cover AP language orals)*
+
+AP exams are now fully/hybrid digital via Bluebook. No competitor has built a proper Bluebook-style interface. This is a 6-month first-mover window.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Full-Length Timed Practice Exam** | 3-hour+ timed exam in Bluebook-style UI with section timer, progress bar, and question navigator | ALL | P0 |
+| **TEXT: Essay Interface** | Split-screen view: source documents (for DBQ) on left, text editor on right — mirrors real Bluebook AP History/Lang experience | TEXT | P0 |
+| **VISUAL: Equation Scratch Pad** | Split-screen: problem on left, equation scratch pad + answer input on right; MathJax renders problem; student types or draws solution | VISUAL | P0 |
+| **VISUAL: Graph Annotation Tools** | Drag-to-draw curve tools, axis labeling, point plotting — for AP Calc, AP Physics, AP Stats graph questions | VISUAL | P0 |
+| **Digital Annotation Tools** | Highlight, strikethrough, flag for review — same tools as real Bluebook | ALL | P0 |
+| **Distraction-Free Mode** | Full-screen lock mode to simulate real exam environment | ALL | P1 |
+| **Post-Exam Report** | Full score breakdown by unit after exam completion; weak areas flagged into study plan | ALL | P0 |
+| **Retake Scheduler** | System automatically schedules next full-length exam 2 weeks later with fresh question set | ALL | P1 |
+| **Score Trend Graph** | Full-exam scores plotted over time — visual progress toward a 5 | ALL | P1 |
+
+> 🚧 **Sprint Grooming Note:** The Bluebook simulator has fundamentally different UX for TEXT vs. VISUAL subjects. Sprint 7 builds TEXT exam interface (AP Lang, APUSH). Sprint 8 builds VISUAL exam interface (AP Calc, AP Bio). Same timer/navigation shell, different content panes. Plan two separate design specs.
+
+---
+
+#### 🔷 Epic 1.5 — Onboarding, Auth & Core Infrastructure (Sprint 1–2 | Weeks 1–4)
+`subject_types: ALL` | *This epic is the foundation — must be pluggable and i18n-ready from day one*
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Student Onboarding Flow** | Grade level → AP subjects → exam date → diagnostic trigger; system assigns `SubjectType` to each selected subject automatically | ALL | P0 |
+| **Parent Onboarding** | Optional parent account link — weekly email summary of student progress via `IEmailProvider` | ALL | P1 |
+| **Google/Apple SSO** | Frictionless auth via `IAuthProvider` (default: Supabase Auth); swap to Clerk/Auth0 via config | ALL | P0 |
+| **Subscription & Paywall** | Free tier → Pro upgrade via `IPaymentProvider` (default: Stripe); swap to LemonSqueezy via config | ALL | P0 |
+| **Student Intelligence Profile v0.1** | Initial SIP seed from diagnostic data — stores learning pace, subject type preferences, weak units, predicted score | ALL | P0 |
+| **Feature Flag System** | Central config/env-driven feature flag system via `IFeatureFlagProvider`; every subject module, renderer, and provider gated behind a flag | ALL | P0 |
+| **i18n Scaffold** | `next-intl` installed and all UI strings extracted to `/messages/en.json`; locale-aware routing set up even if only `en` ships at launch | ALL | P0 |
+| **Provider Config File** | `config/providers.ts` created — single file mapping all env vars to concrete provider implementations; never hardcode providers in feature code | ALL | P0 |
+
+**Acceptance Criteria for Epic 1.5:** A developer can swap any provider (auth, email, payments, LLM) by changing a single env var with zero code changes. All UI strings are in `/messages/en.json`. Feature flags gate all subject modules.
+
+> 🚧 **Sprint Grooming Note:** The `config/providers.ts` and `IFeatureFlagProvider` stories are **blocking stories** — they must be completed in Sprint 1, Week 1, before any other feature story begins. No feature story is sprint-ready if it imports a vendor SDK directly rather than going through a provider interface.
+
+---
+
+### Phase 1 — Sprint Schedule
+
+| Sprint | Weeks | Focus | Deliverable | Subject Types Active |
+|---|---|---|---|---|
+| Sprint 1 | 1–2 | Auth, DB schema, provider config scaffold, i18n scaffold, feature flags, onboarding flow | Working login + subject selector + pluggable provider layer live | ALL |
+| Sprint 2 | 3–4 | Diagnostic engine (TEXT) + Unit Heatmap | 50Q TEXT diagnostic live for AP Lang, AP Psych, AP US History | TEXT |
+| Sprint 3 | 5–6 | Diagnostic engine (VISUAL) + MathJax renderer + Score predictor + Study plan generator | 50Q VISUAL diagnostic live for AP Calc AB; personalized 8-week plan | VISUAL |
+| Sprint 4 | 7–8 | FSRS engine + Daily review queue (TEXT + VISUAL) | Adaptive quiz system live for both subject types | TEXT + VISUAL |
+| Sprint 5 | 9–10 | TEXT “Why Wrong?” explainer + VISUAL step-by-step solution + Weak drill mode | Full practice loop complete for both subject types | TEXT + VISUAL |
+| Sprint 6 | 11–12 | FRQ grader MVP — TEXT (AP Lang essay + APUSH DBQ) + VISUAL (AP Calc FRQ + Equation OCR) | First AI-graded FRQ submissions across both subject types | TEXT + VISUAL |
+| Sprint 7 | 13–14 | Bluebook simulator — TEXT exam interface (MCQ + essay section) | Timed digital TEXT exam live | TEXT |
+| Sprint 8 | 15–16 | Bluebook simulator — VISUAL exam interface (MCQ + equation scratch pad + graph tools) | Full exam simulator live for VISUAL subjects | VISUAL |
+| Sprint 9 | 17–18 | Payment flow via `IPaymentProvider`, free/pro tiers, parent dashboard, email via `IEmailProvider` | Monetization live | ALL |
+| Sprint 10 | 19–20 | Remaining AP subjects (AP Bio VISUAL, AP Chem VISUAL, AP Psych TEXT — full question banks) | 6 AP subjects fully supported | TEXT + VISUAL |
+| Sprint 11 | 21–22 | Performance optimization, load testing, provider swap drills, UAT | Load-tested, UAT complete, provider swaps validated | ALL |
+| Sprint 12 | 23–24 | Soft launch (California only) | 🚀 Public launch Month 6 | TEXT + VISUAL |
+
+---
+
+*(Sections continue — next: Phase 1 Tech Stack →)*
