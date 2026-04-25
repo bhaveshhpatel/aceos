@@ -46,4 +46,88 @@ These principles must be present in every sprint planning session, story groomin
 
 ---
 
+## 🏗️ Suite Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   AceIt Dashboard                   │  ← The Front Door
+├──────────────┬──────────────┬──────────┬────────────┤
+│  GradeGuard  │ ScoreBoost AP│StudySensei│ SmartPack  │  ← 4 Core Modules
+├──────────────┴──────────────┴──────────┴────────────┤
+│   Subject-Type Rendering Layer (TEXT | VISUAL | LANGUAGE)   │  ← NEW
+├─────────────────────────────────────────────────────┤
+│          Student Intelligence Profile (SIP)          │  ← Shared AI Brain
+│  (Learning style · Subject type prefs · Weak concepts  │
+│   GPA arc · AP score projection · Burnout risk index)  │
+├─────────────────────────────────────────────────────┤
+│         Pluggable Provider Abstraction Layer          │  ← NEW
+│  (LLM · Auth · Payments · Email · Storage · Analytics) │
+├─────────────────────────────────────────────────────┤
+│   i18n / Localization Layer (strings · locale · RTL)   │  ← NEW
+├─────────────────────────────────────────────────────┤
+│              Shared Data & Auth Layer                 │  ← Supabase + PostgreSQL
+└─────────────────────────────────────────────────────┘
+```
+
+### How the Products Talk to Each Other
+
+- **GradeGuard → ScoreBoost AP:** When GradeGuard detects struggling with stoichiometry in AP Chem class, it automatically flags this in ScoreBoost AP so that unit gets prioritized in the AP prep plan.
+- **StudySensei → GradeGuard:** When the AI tutor identifies a conceptual gap in integration by parts, GradeGuard schedules a 10-minute micro-review 2 days before the next Calc quiz.
+- **SmartPack → All:** Squad members' collective performance data surfaces the most commonly missed concepts across the group.
+- **All → Student Intelligence Profile:** Every interaction, quiz, session, and essay refines the AI's model of the student, making every recommendation sharper over time.
+- **Subject-Type Rendering Layer → All Modules:** Detects subject context and activates the correct renderer — rich text for humanities, MathJax + canvas for STEM, audio/speech for foreign language.
+
+---
+
+## 🧩 Pluggable Architecture Blueprint
+
+> **Engineering Mandate:** AceOS is built so that *every* external dependency is swappable without touching business logic. This section defines the abstraction contracts. Reference this during every sprint grooming when a new integration point is introduced.
+
+### Provider Interface Map
+
+| Domain | Interface Name | Phase 1 Default | Swap-In Alternatives | Config Key |
+|---|---|---|---|---|
+| **LLM — Grading** | `ILLMGradingProvider` | Gemini Flash → GPT-4o mini | GPT-4o, Claude 3.7, Mistral, Llama 3 | `LLM_GRADING_PROVIDER` |
+| **LLM — Tutor** | `ILLMTutorProvider` | Groq (Llama 3.3 70B) | Claude 3.7, GPT-4o, Gemini Pro | `LLM_TUTOR_PROVIDER` |
+| **LLM — Embeddings** | `IEmbeddingProvider` | Nomic Embed / text-embedding-3-small | Cohere Embed, Voyage AI, local GGUF | `EMBEDDING_PROVIDER` |
+| **Auth** | `IAuthProvider` | Supabase Auth | Clerk, Auth0, NextAuth, Firebase Auth | `AUTH_PROVIDER` |
+| **Database** | `IDBProvider` | Supabase (PostgreSQL) | PlanetScale, Neon, Railway Postgres | `DB_PROVIDER` |
+| **File/Media Storage** | `IStorageProvider` | Cloudflare R2 | AWS S3, Supabase Storage, GCS | `STORAGE_PROVIDER` |
+| **Email** | `IEmailProvider` | Resend | SendGrid, Postmark, AWS SES | `EMAIL_PROVIDER` |
+| **Payments** | `IPaymentProvider` | Stripe | LemonSqueezy, Paddle, RevenueCat (mobile) | `PAYMENT_PROVIDER` |
+| **Analytics** | `IAnalyticsProvider` | PostHog | Mixpanel, Amplitude, Segment | `ANALYTICS_PROVIDER` |
+| **Feature Flags** | `IFeatureFlagProvider` | Config JSON / env vars | LaunchDarkly, Growthbook, Flagsmith | `FEATURE_FLAG_PROVIDER` |
+| **FSRS Engine** | `IFSRSProvider` | `ts-fsrs` (TypeScript) | Custom FSRS-5, Python `fsrs` lib, server-side | `FSRS_PROVIDER` |
+| **Search** | `ISearchProvider` | Postgres FTS + pgvector | Typesense, Algolia, Meilisearch | `SEARCH_PROVIDER` |
+| **Rendering — Math** | `IMathRenderer` | MathJax 3 | KaTeX, MathML native | `MATH_RENDERER` |
+| **Rendering — Diagrams** | `IDiagramRenderer` | Excalidraw embed / Canvas API | Konva.js, Fabric.js, tldraw | `DIAGRAM_RENDERER` |
+| **Rendering — Audio/Speech** | `ISpeechProvider` | Web Speech API (browser-native) | Whisper API, Google STT, Deepgram | `SPEECH_PROVIDER` |
+| **Push Notifications** | `INotificationProvider` | Resend (email) + browser push | Firebase FCM, OneSignal, Expo Push | `NOTIFICATION_PROVIDER` |
+
+### Implementation Pattern (Every Provider)
+
+```typescript
+// providers/llm/ILLMGradingProvider.ts
+export interface ILLMGradingProvider {
+  gradeResponse(params: GradingParams): Promise<GradingResult>;
+  getModelInfo(): ProviderMeta;
+}
+
+// providers/llm/OpenAIGradingProvider.ts  
+export class OpenAIGradingProvider implements ILLMGradingProvider { ... }
+
+// providers/llm/GeminiGradingProvider.ts
+export class GeminiGradingProvider implements ILLMGradingProvider { ... }
+
+// config/providers.ts  ← THE ONLY FILE YOU CHANGE TO SWAP
+export const gradingProvider: ILLMGradingProvider =
+  process.env.LLM_GRADING_PROVIDER === 'openai'
+    ? new OpenAIGradingProvider()
+    : new GeminiGradingProvider();
+```
+
+> **Sprint Grooming Rule:** Any story introducing a new external service MUST begin with defining its `IProvider` interface first. The interface is the acceptance criteria. Implementation is the story. Swap-in is free.
+
+---
+
 *(Sections continue below — pushed incrementally)*
