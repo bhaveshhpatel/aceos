@@ -1,6 +1,6 @@
 # AceOS™ — Master Product Roadmap
 ### *"Study Smarter, Not Harder"*
-**Version 3.0 | Refined & Finalized | April 2026**
+**Version 3.1 | Updated Tech Stack | April 2026**
 
 ---
 
@@ -198,20 +198,48 @@ AP exams are now fully/hybrid digital via Bluebook. No competitor has built a pr
 
 ### Phase 1 — Tech Stack
 
-| Layer | Technology | Rationale |
+> **Version 3.1 Note:** Two stack options are presented below. The **Free-First Launch** column is the recommended path for MVP/Phase 1 to minimize fixed costs to $0/mo in infrastructure. Upgrade to the Proposed (Production) stack as revenue scales.
+
+#### 💸 Monthly Infrastructure Cost Estimate
+
+| Scenario | Proposed (Production) Stack | ✅ Free-First Launch Stack |
 |---|---|---|
-| **Frontend** | Next.js 15 (App Router) + TypeScript | SSR for SEO, rapid component dev |
-| **Backend/API** | Next.js API Routes + Python FastAPI (AI services) | FastAPI for AI microservices; Next.js for CRUD |
-| **Database** | Supabase (PostgreSQL) | Auth + DB + realtime in one |
-| **AI/LLM** | OpenAI GPT-4o + Claude 3.7 Sonnet via API | GPT-4o for FRQ grading; Claude for Socratic tutoring |
-| **FSRS Engine** | `ts-fsrs` (TypeScript open-source library) | Drop-in FSRS-5 implementation |
-| **Hosting** | Vercel (frontend) + Railway (Python AI services) | Existing infra; zero new learning curve |
-| **Payments** | Stripe | Industry standard; subscription + one-time support |
-| **Email** | Resend + React Email | Parent summaries, streak nudges |
-| **Analytics** | PostHog (self-hostable) | Product analytics without vendor lock-in |
-| **CDN / Media** | Cloudflare R2 | FRQ image uploads, student-uploaded notes |
-| **Search** | Postgres Full-Text Search → pgvector | Semantic question search + concept tagging |
-| **AI Embeddings** | OpenAI `text-embedding-3-small` + pgvector | Semantic similarity for concept clustering in SIP |
+| MVP / 0 users (dev) | ~$25/mo | **$0/mo** |
+| 50 active users | ~$50/mo | **$0–$5/mo** |
+| 500 active users | ~$150–$300/mo | ~$30–$80/mo |
+| 5,000 active users | ~$800–$2,000/mo | Upgrade to production stack |
+
+---
+
+#### 🛠️ Stack Comparison
+
+| Layer | 🏗️ Proposed (Production) Stack | Rationale | ✅ Free-First Launch *(Recommended for Phase 1)* | Free-First Notes & Tradeoffs |
+|---|---|---|---|---|
+| **Frontend Framework** | Next.js 15 (App Router) + TypeScript | SSR for SEO, rapid component dev | **Next.js 15 (App Router) + TypeScript** ✅ Same | No change — framework is always free |
+| **Frontend Hosting** | Vercel Pro | Production-grade, zero-config deploys | **Cloudflare Pages** (Free) | No commercial TOS restriction unlike Vercel Hobby; unlimited bandwidth; same Next.js support |
+| **Backend / API** | Next.js API Routes + Python FastAPI (AI services) | FastAPI for AI microservices; Next.js for CRUD | **Next.js API Routes + Render Free Web Service** (Python) | Render free tier spins down after inactivity (~30s cold start); acceptable at MVP scale |
+| **Database** | Supabase Free (PostgreSQL) | Auth + DB + realtime in one | **Supabase Free** ✅ Same | 500MB DB, 50K MAUs, 2GB bandwidth — plenty for Phase 1 |
+| **AI / LLM — FRQ Grading** | OpenAI GPT-4o | Best-in-class rubric grading accuracy | **Google Gemini 1.5 Flash** (free: 1,500 req/day) → GPT-4o mini (pay-as-you-go ~$0.001/FRQ) | Gemini Flash for free volume; GPT-4o mini when needed; upgrade to GPT-4o once revenue covers it |
+| **AI / LLM — Socratic Tutor** | Claude 3.7 Sonnet via API | Best conversational reasoning | **Groq free tier** (Llama 3.3 70B) → Claude Haiku | Groq has daily rate limits; Claude Haiku is cheap (~$0.0008/1K tokens) as fallback |
+| **FSRS Engine** | `ts-fsrs` (open-source) | Drop-in FSRS-5 implementation | **`ts-fsrs`** ✅ Same | Fully open source, no cost |
+| **Payments** | Stripe | Industry standard; subscription + one-time | **Stripe** ✅ Same | No monthly fee — only 2.9% + $0.30 per transaction; no better free alternative exists |
+| **Email** | Resend + React Email | Parent summaries, streak nudges | **Resend Free** ✅ Same | Free up to 3,000 emails/mo — sufficient for Phase 1 |
+| **Analytics** | PostHog Cloud Free | Product analytics without vendor lock-in | **PostHog Cloud Free** ✅ Same | Free up to 1M events/mo |
+| **CDN / Media** | Cloudflare R2 | FRQ image uploads, student-uploaded notes | **Cloudflare R2 Free** ✅ Same | Free up to 10GB storage + 1M operations/mo |
+| **Search** | Postgres Full-Text Search → pgvector | Semantic question search + concept tagging | **Postgres Full-Text Search → pgvector** ✅ Same | Built into Supabase free tier |
+| **AI Embeddings** | OpenAI `text-embedding-3-small` + pgvector | Semantic similarity for concept clustering in SIP | **Nomic Embed API (free tier)** or `text-embedding-3-small` pay-as-you-go (~$0.02/M tokens) | Nomic has rate limits; OpenAI embeddings are near-zero cost at low volume |
+
+---
+
+#### 🔁 Upgrade Trigger Points (Free → Production)
+
+| When This Happens | Upgrade This |
+|---|---|
+| First $1,000 MRR | Vercel Pro ($20/mo) — remove Cloudflare Pages |
+| Python AI service gets consistent traffic | Railway Hobby ($5–20/mo) — remove Render free cold starts |
+| FRQ grading quality complaints | OpenAI GPT-4o — replace Gemini Flash |
+| Socratic tutor needs better reasoning | Claude 3.7 Sonnet — replace Groq/Haiku |
+| Supabase hits 50K MAU or 2GB bandwidth | Supabase Pro ($25/mo) |
 
 ---
 
@@ -609,4 +637,4 @@ Month 24+   │ AceOS Full Platform ───── 🚀 National scale + seed r
 ---
 
 *AceOS™ — Built to make every high school student study smarter, not harder.*
-*Version 3.0 | April 2026*
+*Version 3.1 | April 2026*
