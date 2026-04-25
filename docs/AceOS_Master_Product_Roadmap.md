@@ -379,4 +379,110 @@ AP exams are now fully/hybrid digital via Bluebook. No competitor has built a pr
 
 ---
 
-*(Sections continue — next: Phase 1 Tech Stack →)*
+## 🛠️ Phase 1 — Tech Stack
+
+> Every technology listed below is the **Phase 1 default**. The swap-in column shows what you change to via `config/providers.ts` as you scale. No other code changes required.
+
+### Frontend
+
+| Layer | Technology | Pluggable Interface | Swap-In | Config Key |
+|---|---|---|---|---|
+| **Framework** | Next.js 15 (App Router) | — | SvelteKit, Remix (major refactor — low priority) | — |
+| **Styling** | Tailwind CSS v4 + shadcn/ui | — | — | — |
+| **State Management** | Zustand | — | Jotai, Redux Toolkit | — |
+| **i18n** | `next-intl` | `ILocaleProvider` | `react-i18next`, `lingui` | `I18N_PROVIDER` |
+| **Math Rendering (VISUAL)** | MathJax 3 | `IMathRenderer` | KaTeX, MathML | `MATH_RENDERER` |
+| **Diagram / Drawing (VISUAL)** | Excalidraw embed + HTML Canvas API | `IDiagramRenderer` | Konva.js, Fabric.js, tldraw | `DIAGRAM_RENDERER` |
+| **Rich Text Editor (TEXT)** | Tiptap (ProseMirror-based) | `ITextEditorProvider` | Quill, Lexical (Meta) | `TEXT_EDITOR_PROVIDER` |
+| **Audio Playback (LANGUAGE)** | HTML5 `<audio>` + custom controls | `IAudioPlayer` | Howler.js | `AUDIO_PLAYER` |
+| **Speech Input (LANGUAGE)** | Web Speech API (`SpeechRecognition`) | `ISpeechProvider` | Whisper API, Deepgram, Google STT | `SPEECH_PROVIDER` |
+| **Special Char Keyboard (LANGUAGE)** | `react-simple-keyboard` | `IKeyboardProvider` | Custom virtual keyboard | `KEYBOARD_PROVIDER` |
+| **Charts / Analytics UI** | Recharts | — | Chart.js, Nivo | — |
+| **Animations** | Framer Motion | — | — | — |
+
+### Backend
+
+| Layer | Technology | Pluggable Interface | Swap-In | Config Key |
+|---|---|---|---|---|
+| **API Layer** | Next.js API Routes + Server Actions | — | Separate Express/Fastify service (Phase 4+) | — |
+| **Database** | Supabase (PostgreSQL) | `IDBProvider` | Neon, PlanetScale, Railway Postgres | `DB_PROVIDER` |
+| **Auth** | Supabase Auth (Google + Apple SSO) | `IAuthProvider` | Clerk, Auth0, NextAuth | `AUTH_PROVIDER` |
+| **ORM** | Drizzle ORM | — | Prisma | — |
+| **File / Media Storage** | Cloudflare R2 | `IStorageProvider` | AWS S3, Supabase Storage, GCS | `STORAGE_PROVIDER` |
+| **FSRS Engine** | `ts-fsrs` (TypeScript, client+server) | `IFSRSProvider` | Python `fsrs` microservice, custom FSRS-5 | `FSRS_PROVIDER` |
+| **Vector Search** | pgvector (Supabase extension) | `ISearchProvider` | Pinecone, Weaviate, Typesense | `SEARCH_PROVIDER` |
+| **Background Jobs** | Supabase Edge Functions + pg_cron | `IJobQueueProvider` | Inngest, Trigger.dev, BullMQ | `JOB_QUEUE_PROVIDER` |
+| **Realtime** | Supabase Realtime | — | Ably, Pusher, Soketi | — |
+
+### AI / ML
+
+| Layer | Technology | Pluggable Interface | Swap-In | Config Key |
+|---|---|---|---|---|
+| **LLM — Grading (TEXT)** | GPT-4o mini (cost-optimized) | `ILLMGradingProvider` | Claude 3.5 Haiku, Gemini Flash | `LLM_GRADING_PROVIDER` |
+| **LLM — Grading (VISUAL)** | GPT-4o (multimodal, vision+text) | `ILLMGradingProvider` | Gemini 1.5 Pro, Claude 3.7 Sonnet | `LLM_GRADING_PROVIDER` |
+| **LLM — Tutor / Socratic** | Groq + Llama 3.3 70B (low latency) | `ILLMTutorProvider` | GPT-4o, Claude 3.7, Gemini Pro | `LLM_TUTOR_PROVIDER` |
+| **LLM — Language Grading** | GPT-4o + multilingual prompt templates | `ILLMGradingProvider` | Claude 3.7, Gemini 1.5 Pro | `LLM_GRADING_PROVIDER` |
+| **Embeddings** | `text-embedding-3-small` (OpenAI) | `IEmbeddingProvider` | Nomic Embed, Cohere Embed, Voyage AI | `EMBEDDING_PROVIDER` |
+| **Equation OCR (VISUAL)** | GPT-4o Vision | `IEquationOCRProvider` | Mathpix API, Google Vision AI | `EQUATION_OCR_PROVIDER` |
+| **Speech-to-Text (LANGUAGE)** | Web Speech API (browser) | `ISpeechProvider` | OpenAI Whisper API, Deepgram, Google STT | `SPEECH_PROVIDER` |
+| **AI SDK / Routing** | Vercel AI SDK (`ai` package) | — | LangChain.js (if agent complexity grows) | — |
+
+### Infrastructure & DevOps
+
+| Layer | Technology | Pluggable Interface | Swap-In | Config Key |
+|---|---|---|---|---|
+| **Hosting** | Vercel (Next.js optimized) | — | Railway, Fly.io, AWS Amplify | — |
+| **CDN / Edge** | Vercel Edge Network + Cloudflare R2 | — | AWS CloudFront | — |
+| **Email** | Resend | `IEmailProvider` | SendGrid, Postmark, AWS SES | `EMAIL_PROVIDER` |
+| **Payments** | Stripe | `IPaymentProvider` | LemonSqueezy, Paddle, RevenueCat | `PAYMENT_PROVIDER` |
+| **Analytics** | PostHog (self-hostable) | `IAnalyticsProvider` | Mixpanel, Amplitude, Segment | `ANALYTICS_PROVIDER` |
+| **Error Monitoring** | Sentry | — | Datadog, Highlight.run | — |
+| **Feature Flags** | Env vars + config JSON | `IFeatureFlagProvider` | LaunchDarkly, Growthbook, Flagsmith | `FEATURE_FLAG_PROVIDER` |
+| **CI/CD** | GitHub Actions | — | — | — |
+| **Secrets Management** | Vercel Environment Variables | — | Doppler, AWS Secrets Manager | — |
+
+### Codebase Directory Structure
+
+```
+aceos/
+├── app/                        # Next.js App Router pages
+├── components/
+│   ├── renderers/              # SubjectType-specific renderers
+│   │   ├── TextRenderer.tsx    # TEXT mode — rich text, markdown
+│   │   ├── VisualRenderer.tsx  # VISUAL mode — MathJax, canvas, diagrams
+│   │   └── LanguageRenderer.tsx # LANGUAGE mode — audio, speech, keyboard
+│   ├── ui/                     # shadcn/ui base components
+│   └── shared/                 # Subject-type-agnostic shared components
+├── providers/                  # ALL pluggable provider implementations
+│   ├── llm/
+│   │   ├── ILLMGradingProvider.ts
+│   │   ├── OpenAIGradingProvider.ts
+│   │   └── GeminiGradingProvider.ts
+│   ├── auth/
+│   ├── storage/
+│   ├── email/
+│   ├── payment/
+│   ├── speech/
+│   ├── fsrs/
+│   └── analytics/
+├── config/
+│   ├── providers.ts            # ← THE ONLY FILE TO CHANGE FOR ANY SWAP
+│   ├── subjects.ts             # Subject → SubjectType mapping
+│   └── feature-flags.ts        # Feature flag definitions
+├── messages/                   # i18n locale files
+│   ├── en.json
+│   ├── es.json                 # Added Phase 3
+│   └── zh-Hans.json            # Added Phase 3
+├── lib/
+│   ├── fsrs/                   # FSRS-5 scheduling logic
+│   ├── ai/                     # AI prompt templates per subject type
+│   └── db/                     # Drizzle schema + queries
+└── public/
+    └── audio/                  # Static audio assets (Phase 3+)
+```
+
+> **Sprint Grooming Rule:** Any new component added to `components/` must declare its `subjectType` support in a JSDoc comment at the top. Any new file in `lib/ai/` must specify which LLM provider interface it uses. No direct SDK imports outside of `providers/`.
+
+---
+
+*(Sections continue — next: Phase 2 GradeGuard →)*
