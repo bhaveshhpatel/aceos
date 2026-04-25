@@ -627,4 +627,355 @@ Students log grades on their phones — immediately after getting a test back in
 
 ---
 
-*(Sections continue — next: Phase 3 StudySensei + LANGUAGE mode →)*
+## 🗓️ PHASE 3: Deepen (Months 13–18)
+### Launch StudySensei + Full LANGUAGE Mode
+
+**Strategic Logic:** Phase 3 unlocks two things simultaneously: (1) StudySensei — the AI Socratic tutor that turns passive review into active mastery dialogue, and (2) LANGUAGE mode — the third and final subject-type renderer, unlocking AP Spanish, French, Chinese, Japanese, and more. Together they make AceOS the only AP prep tool that handles every subject type with a dedicated AI tutor.
+
+---
+
+### Phase 3 OKRs
+
+**Objective 1:** Make StudySensei the most-used feature in AceOS.
+- KR1: 70% of active users engage with StudySensei at least once per week by Month 15
+- KR2: Average session length increases from 12 min → 22 min after StudySensei activation
+- KR3: Users who complete a StudySensei session score 18% higher on the following practice quiz (validated via A/B test)
+
+**Objective 2:** Own the AP Foreign Language prep market.
+- KR1: 1,000 AP Spanish students activate LANGUAGE mode within 60 days of launch
+- KR2: AP Spanish diagnostic completion rate ≥ 65% (vs. 72% for TEXT subjects — acceptable delta given audio dependency)
+- KR3: Language Add-On converts at ≥ 12% of eligible free users
+
+**Objective 3:** Scale MRR with new subject types and tutor upsell.
+- KR1: $150,000 MRR by Month 15
+- KR2: $250,000 MRR by Month 18
+- KR3: Churn rate drops below 6%/month after StudySensei activation (vs. 11% without)
+
+---
+
+### Phase 3 Epics & Feature Breakdown
+
+#### 🔷 Epic 3.1 — StudySensei AI Socratic Tutor (Sprint 19–22 | Weeks 37–44)
+`subject_types: TEXT, VISUAL, LANGUAGE`
+
+StudySensei is not a chatbot. It is a Socratic tutor — it never gives the answer directly. It asks questions that guide the student to the answer themselves. This is the single most evidence-backed tutoring methodology for long-term retention.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Socratic Dialogue Engine** | AI tutor responds to student questions with guided questions, not direct answers; uses chain-of-thought prompting internally but surfaces only Socratic turns to student | ALL | P0 |
+| **TEXT: Essay Argumentation Coach** | Student pastes a draft thesis or argument; AI coaches line-by-line with Socratic questions — "What evidence supports this claim?" | TEXT | P0 |
+| **VISUAL: Equation Walkthrough Mode** | Student inputs a problem; AI walks through step-by-step with rendered MathJax, asking the student to complete each step before revealing the next | VISUAL | P0 |
+| **LANGUAGE: Target-Language Dialogue** | Student converses with AI tutor entirely in target language (Spanish, French, etc.); AI corrects grammar/vocab inline without breaking immersion | LANGUAGE | P0 |
+| **Session Memory** | AI tutor remembers what was covered in the last 5 sessions; builds on prior explanations; avoids re-explaining mastered concepts | ALL | P0 |
+| **"Explain Like I'm 10" Mode** | Student can request simpler explanation; AI adjusts complexity level via prompt injection | ALL | P1 |
+| **Concept Connection Map** | After session: AI surfaces 3 related concepts the student should review next, linked to FSRS queue | ALL | P1 |
+| **Tutor Session History** | Full transcript of all past sessions, searchable by subject and concept | ALL | P1 |
+| **VISUAL: Live Equation Scratch Pad** | Student and tutor share a live equation scratch pad during session; student writes, AI annotates | VISUAL | P1 |
+| **LANGUAGE: Pronunciation Feedback** | AI listens to student speak in target language via `ISpeechProvider`; scores pronunciation and gives phoneme-level feedback | LANGUAGE | P1 |
+| **Tutoring Session Caps (Free tier)** | Free users get 3 StudySensei sessions/month; Pro users get unlimited | ALL | P0 |
+
+**AI Implementation Note:** StudySensei uses `ILLMTutorProvider` (default: Groq + Llama 3.3 70B for low-latency streaming). LANGUAGE mode switches to multilingual-capable model (GPT-4o or Claude 3.7). Session memory stored in Supabase with pgvector embeddings for semantic session recall.
+
+> 🚧 **Sprint Grooming Note:** "Socratic Dialogue Engine" is the foundation story — it must ship before any subject-type-specific tutor story begins. The engine is subject-type-agnostic at the LLM layer; subject type only affects the renderer (what the student sees alongside the dialogue). Separate stories: TEXT tutor UI, VISUAL tutor UI, LANGUAGE tutor UI.
+
+---
+
+#### 🔷 Epic 3.2 — LANGUAGE Mode: AP Foreign Language Full Stack (Sprint 21–24 | Weeks 41–48)
+`subject_types: LANGUAGE`
+
+This is the third and final subject-type renderer. AP Spanish Language is the #2 most-taken AP exam nationally. No competitor has native audio, speech input, pronunciation scoring, and target-language AI tutoring in one product. This is the moat.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **LANGUAGE Diagnostic** | 50-question AP Spanish/French diagnostic with listening comprehension (audio MCQ), reading (text MCQ), and speaking prompts; all audio served from Cloudflare R2 | LANGUAGE | P0 |
+| **Audio Question Renderer** | `LanguageRenderer.tsx` — HTML5 audio player with playback controls, transcript toggle, speed control (0.75x / 1x / 1.25x) | LANGUAGE | P0 |
+| **Speech Input + STT** | Microphone capture via `ISpeechProvider`; transcribes student's spoken response; feeds into AI grading pipeline | LANGUAGE | P0 |
+| **Pronunciation Scorer** | Phoneme-level comparison of student speech vs. native speaker target; score per phoneme cluster; visual feedback on problem sounds | LANGUAGE | P0 |
+| **Special Character Keyboard** | Virtual keyboard overlay for Spanish (ñ, á, é, í, ó, ú, ü, ¿, ¡), French (à, â, ç, è, ê, ë, î, ï, ô, ù, û), Chinese (Pinyin input + Hanzi display), Japanese (Hiragana + Kanji) | LANGUAGE | P0 |
+| **Dual-Script Display** | For AP Chinese/Japanese: question and answer rendered in both scripts side-by-side (Hanzi + Pinyin; Kanji + Hiragana) | LANGUAGE | P0 |
+| **LANGUAGE FSRS Cards** | Audio-front / text-back spaced repetition cards; student hears audio prompt → recalls written or spoken answer | LANGUAGE | P0 |
+| **Spoken FRQ Grader** | Student records spoken response to AP Spanish/French presentational speaking task; AI scores on fluency, grammar, vocabulary, task completion | LANGUAGE | P0 |
+| **Interpersonal Speaking Simulator** | AI plays the role of conversation partner in target language; student responds; AI grades turn-by-turn | LANGUAGE | P1 |
+| **Audio Content Library** | 500+ curated audio clips per AP language subject (native speaker narration, news excerpts, conversation samples) stored in R2 | LANGUAGE | P1 |
+| **LANGUAGE Bluebook Simulator** | AP Spanish/French written sections in Bluebook-style UI; listening section with audio player; no oral section (Bluebook limitation) | LANGUAGE | P1 |
+| **es.json / zh-Hans.json locale files** | UI strings for Spanish and Simplified Chinese added to `/messages/`; all AP language UI rendered in target language option | LANGUAGE | P1 |
+
+**Technical Note:** Audio files follow strict CDN path structure: `/{locale}/{subject}/{unit}/{file_id}.mp3`. All audio URLs stored in DB as relative paths — never hardcoded. STT defaults to Web Speech API; swap to OpenAI Whisper for higher accuracy via `ISpeechProvider`.
+
+> 🚧 **Sprint Grooming Note:** LANGUAGE mode ships AP Spanish first (highest enrollment), then AP French, AP Chinese, AP Japanese in that order. Each language is feature-flagged independently via `IFeatureFlagProvider` — you can ship Spanish without French being ready. Do not block all languages on one story.
+
+---
+
+#### 🔷 Epic 3.3 — AP Content Expansion (Sprint 22–23 | Weeks 43–46)
+`subject_types: TEXT, VISUAL, LANGUAGE`
+
+Phase 1 launched 6 AP subjects. Phase 3 expands to the top 20 by enrollment, covering all three subject types.
+
+| AP Subject | Subject Type | Enrollment Rank | Sprint |
+|---|---|---|---|
+| AP Spanish Language & Culture | LANGUAGE | #2 nationally | Sprint 21 |
+| AP French Language & Culture | LANGUAGE | Top 10 | Sprint 22 |
+| AP Chinese Language & Culture | LANGUAGE | Top 15 | Sprint 22 |
+| AP Japanese Language & Culture | LANGUAGE | Top 20 | Sprint 23 |
+| AP World History: Modern | TEXT | #3 nationally | Sprint 22 |
+| AP Government & Politics (US) | TEXT | Top 10 | Sprint 22 |
+| AP Macroeconomics | TEXT | Top 10 | Sprint 23 |
+| AP Statistics | VISUAL | Top 10 | Sprint 23 |
+| AP Chemistry | VISUAL | Top 10 | Sprint 23 |
+| AP Physics 1 | VISUAL | Top 10 | Sprint 23 |
+| AP Computer Science A | VISUAL | Top 15 | Sprint 23 |
+| AP Human Geography | TEXT | Top 10 | Sprint 22 |
+| AP European History | TEXT | Top 15 | Sprint 23 |
+
+> 🚧 **Sprint Grooming Note:** Each new AP subject is a content story, not an engineering story — the renderers, FSRS engine, and AI grading pipeline are already live. What changes per subject: question bank, rubric templates, AI prompt system prompt, and unit heatmap config. Each subject addition should be a 2-day content authoring task, not a 2-week sprint.
+
+---
+
+#### 🔷 Epic 3.4 — SIP v2.0: Predictive Intelligence (Sprint 23–24 | Weeks 45–48)
+`subject_types: ALL`
+
+By Month 18, AceOS has 12+ months of student data. SIP v2.0 shifts from reactive (responding to what happened) to predictive (forecasting what will happen and intervening before it does).
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Predictive Score Model v2** | ML model trained on 12 months of AceOS data; predicts AP score with ±0.3 accuracy by Week 4 of prep | ALL | P0 |
+| **Early Warning System** | Detects burnout, disengagement, or score regression 2 weeks before it becomes critical; triggers personalized intervention | ALL | P0 |
+| **Optimal Study Schedule Generator** | Given student's class load, AP exam dates, and SIP data — generates the mathematically optimal study schedule across all subjects | ALL | P0 |
+| **Cross-Subject Concept Transfer** | Detects when mastery in one subject accelerates learning in another (e.g., AP Stats proficiency → AP Psych research methods) | ALL | P1 |
+| **Subject-Type Strength Report** | Detailed annual report: "You are in the 89th percentile for VISUAL subjects and 61st for TEXT subjects — here's what that means for college apps" | ALL | P1 |
+| **College Readiness Index** | Composite score across GPA arc + AP score projections + study consistency; updated monthly | ALL | P2 |
+
+---
+
+### Phase 3 — Sprint Schedule
+
+| Sprint | Weeks | Focus | Deliverable | Subject Types Active |
+|---|---|---|---|---|
+| Sprint 19 | 37–38 | StudySensei foundation — Socratic engine + TEXT tutor UI | Text-based Socratic tutoring live for AP Lang, APUSH, AP Psych | TEXT |
+| Sprint 20 | 39–40 | StudySensei VISUAL mode — equation walkthrough + live scratch pad | VISUAL Socratic tutoring live for AP Calc AB, AP Bio | VISUAL |
+| Sprint 21 | 41–42 | LANGUAGE mode infrastructure — audio renderer + STT + special char keyboard + AP Spanish diagnostic | AP Spanish diagnostic + audio cards live; speech input working | LANGUAGE |
+| Sprint 22 | 43–44 | StudySensei LANGUAGE mode + AP Spanish spoken FRQ grader + AP French/Chinese diagnostic | Target-language dialogue tutor live; spoken FRQ grading live | LANGUAGE |
+| Sprint 23 | 45–46 | AP content expansion (10 new subjects across TEXT + VISUAL + LANGUAGE) + SIP v2.0 predictive model | 20 total AP subjects live; predictive score model active | ALL |
+| Sprint 24 | 47–48 | SIP Early Warning System + optimal schedule generator + Phase 3 QA + performance audit | Full SIP v2.0 live; 18-month milestone review | ALL |
+
+## 🗓️ PHASE 4: Network (Months 19–24)
+### Launch SmartPack + AceIt Dashboard — Own the Social Layer
+
+**Strategic Logic:** By Month 19, AceOS has proven individual student outcomes. Phase 4 adds the social accountability layer — SmartPack turns studying into a team sport, and the AceIt Dashboard unifies all four modules into a single intelligent command center. Network effects begin: students invite friends, parents refer other parents, schools become inbound leads.
+
+---
+
+### Phase 4 OKRs
+
+**Objective 1:** Turn AceOS users into an acquisition channel.
+- KR1: 30% of new signups in Month 19–24 come from SmartPack squad invitations
+- KR2: Average squad size reaches 4.2 students within 30 days of squad formation
+- KR3: Squad-active users show 2.1x higher 30-day retention vs. solo users
+
+**Objective 2:** Make the AceIt Dashboard the student's academic home screen.
+- KR1: 80% of active users open AceIt Dashboard as their first session action by Month 22
+- KR2: Dashboard-first users have 35% longer average session time
+- KR3: NPS for Dashboard experience ≥ 65
+
+**Objective 3:** Establish school/district pipeline.
+- KR1: 5 school pilot agreements signed by Month 24
+- KR2: First $10,000 MRR from school licenses by Month 24
+- KR3: $400,000 total MRR by Month 24
+
+---
+
+### Phase 4 Epics & Feature Breakdown
+
+#### 🔷 Epic 4.1 — SmartPack: Squad Study System (Sprint 25–28 | Weeks 49–56)
+`subject_types: ALL`
+
+SmartPack is the social accountability engine. Research shows students with study accountability partners are 65% more likely to complete study goals. SmartPack makes this native to AceOS.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Squad Creation** | Student creates a study squad (2–6 members); invites via link or username; squad tied to shared AP subjects | ALL | P0 |
+| **Squad Leaderboard** | Weekly ranking by cards reviewed, FRQs submitted, study time logged — resets every Monday | ALL | P0 |
+| **Collective Weak Spot Detector** | AI analyzes all squad members' performance data; surfaces "Your squad's #1 shared weakness is AP Calc Unit 5 — schedule a group session?" | ALL | P0 |
+| **Squad Challenge Mode** | 10-question timed quiz all squad members take simultaneously; results revealed after everyone submits | ALL | P1 |
+| **Study Session Sync** | Squad members can join a live co-study session with shared timer and optional voice channel (via WebRTC) | ALL | P1 |
+| **Squad FRQ Review** | Squad members review each other's AI-graded FRQs and leave peer comments; builds peer accountability | ALL | P1 |
+| **Squad Progress Feed** | Activity feed: "Alex just scored 4/5 on the AP Bio practice exam" — social proof nudges | ALL | P0 |
+| **Squad Goal Setting** | Squad collectively sets a target AP score; AI tracks collective progress toward the goal | ALL | P1 |
+| **Anonymous Performance Mode** | Student can hide their scores from squad feed while still participating; reduces performance anxiety | ALL | P2 |
+
+> 🚧 **Sprint Grooming Note:** "Study Session Sync" with WebRTC is the highest-complexity story in this epic — scope it as P1 and only build if squad adoption data from P0 features justifies it. Do not block the squad leaderboard and challenge mode on WebRTC being ready.
+
+---
+
+#### 🔷 Epic 4.2 — AceIt Dashboard: Unified Command Center (Sprint 26–28 | Weeks 51–56)
+`subject_types: ALL`
+
+The AceIt Dashboard is the front door of AceOS — the first screen a student sees every session. It unifies signals from GradeGuard, ScoreBoost AP, StudySensei, and SmartPack into one intelligent daily briefing.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Daily Intelligence Brief** | "Good morning, Alex. Your AP Calc grade dropped 4 points. You have 3 FSRS cards due. AP exam in 22 days. Start here →" | ALL | P0 |
+| **Unified Progress Ring** | Single visual: GPA health + AP score trajectory + study streak + squad rank — all in one glanceable ring chart | ALL | P0 |
+| **Priority Action Queue** | AI-ranked list of the 3 most important actions for today across all modules; taps directly into respective module | ALL | P0 |
+| **Cross-Module Notifications Center** | All alerts (grade drop, streak at risk, squad challenge, FRQ graded) in one feed; no more scattered notifications | ALL | P0 |
+| **Exam Countdown + Readiness Score** | Days until each AP exam + AI readiness score (0–100) based on SIP data; color-coded urgency | ALL | P0 |
+| **Subject-Type Performance Snapshot** | Quick view: TEXT subjects avg, VISUAL subjects avg, LANGUAGE subjects avg — student sees their profile at a glance | ALL | P1 |
+| **Customizable Widget Layout** | Student can pin/unpin modules and reorder dashboard widgets; layout saved to profile | ALL | P2 |
+| **Parent View Toggle** | Student can share a read-only dashboard link with parent; updates in real-time | ALL | P1 |
+
+---
+
+#### 🔷 Epic 4.3 — School & Teacher Dashboard (Sprint 27–29 | Weeks 53–58)
+`subject_types: ALL`
+
+Schools are the highest-LTV customer segment ($8/student/month × 400 students = $3,200/month per school). The teacher dashboard is the unlock — teachers need visibility into class-wide performance without AceOS becoming a surveillance tool.
+
+| Feature | Description | Subject Type | Priority |
+|---|---|---|---|
+| **Teacher Account Type** | Teacher creates account; links to student roster via school code; sees class-wide (not individual) performance data by default | ALL | P0 |
+| **Class Performance Heatmap** | Teacher sees which AP units the class is collectively struggling with — not individual student grades | ALL | P0 |
+| **Assignment Integration** | Teacher can push a study recommendation to the whole class: "Review Unit 4 before Friday's test" — appears in each student's Daily Intelligence Brief | ALL | P1 |
+| **Anonymous Class Analytics** | Aggregate data only: avg diagnostic score, % of students on track for a 4/5, most-missed concepts | ALL | P0 |
+| **School Admin Dashboard** | School admin sees aggregate performance across all teachers/classes; license usage; renewal alerts | ALL | P1 |
+| **LMS Integration** | Canvas, Schoology, Google Classroom grade sync via `ILMSProvider` (defined in Phase 2, implemented here) | ALL | P1 |
+| **Rostering via Clever/ClassLink** | School SSO and roster sync via Clever or ClassLink; removes friction for district-wide rollout | ALL | P1 |
+
+---
+
+#### 🔷 Epic 4.4 — Monetization Expansion (Sprint 28–30 | Weeks 55–60)
+`subject_types: ALL`
+
+| Feature | Description | Priority |
+|---|---|---|
+| **Annual Plan Push** | In-app campaign: "Switch to annual, save 40%" — timed to post-AP season (May/June) when students are planning for next year | P0 |
+| **Family Plan Upsell** | When a Pro subscriber's sibling signs up, trigger Family Plan upgrade flow | P0 |
+| **School License Sales Flow** | Self-serve school license purchase + onboarding flow; no sales call required for schools <500 students | P0 |
+| **Referral Program v2** | Student referral program: "Get 2 weeks free for every friend who activates Pro" — tracked via `IAnalyticsProvider` | P1 |
+| **AP Sprint Pack (seasonal)** | Re-market AP Sprint Pack each January–April; 90-day one-time purchase for students starting late | P0 |
+| **Revenue Dashboard (Internal)** | MRR, churn, LTV, cohort retention — internal PostHog dashboard for team | P0 |
+
+---
+
+### Phase 4 — Sprint Schedule
+
+| Sprint | Weeks | Focus | Deliverable | Subject Types Active |
+|---|---|---|---|---|
+| Sprint 25 | 49–50 | SmartPack — squad creation + leaderboard + progress feed | Squad system live; students can form and compete in squads | ALL |
+| Sprint 26 | 51–52 | SmartPack — collective weak spot detector + squad challenge mode + AceIt Dashboard shell | Squad AI analysis live; Dashboard skeleton with daily brief | ALL |
+| Sprint 27 | 53–54 | AceIt Dashboard — unified progress ring + priority action queue + exam countdown | Full Dashboard live and default landing page for all users | ALL |
+| Sprint 28 | 55–56 | Teacher dashboard — class heatmap + anonymous analytics + school license flow | Teacher accounts live; first school pilots onboarded | ALL |
+| Sprint 29 | 57–58 | LMS integration + Clever/ClassLink rostering + monetization expansion | School SSO live; annual plan push campaign launched | ALL |
+| Sprint 30 | 59–60 | Performance audit, load testing at scale, security review, Phase 4 retrospective | 24-month milestone: $400K MRR target review | ALL |
+
+## 🗓️ PHASE 5: Scale (Months 25–36)
+### National Expansion, Native Apps, and Enterprise
+
+**Strategic Logic:** By Month 24, AceOS has product-market fit in California, $400K MRR, and 20+ AP subjects covered. Phase 5 is the national push: expand beyond California, launch native iOS/Android apps, pursue district-level contracts, and begin international expansion with LANGUAGE mode as the wedge.
+
+---
+
+### Phase 5 OKRs
+
+**Objective 1:** Achieve national scale.
+- KR1: Students active in 40+ US states by Month 30
+- KR2: $1M MRR by Month 30
+- KR3: $2M MRR by Month 36
+
+**Objective 2:** Launch native mobile apps.
+- KR1: iOS app live in App Store by Month 27
+- KR2: Android app live in Play Store by Month 28
+- KR3: 40% of active users on mobile app vs. web by Month 32
+
+**Objective 3:** Win district-level contracts.
+- KR1: 3 school district contracts signed (500+ students each) by Month 32
+- KR2: $100K ARR from school/district licenses by Month 36
+
+---
+
+### Phase 5 Key Initiatives
+
+| Initiative | Description | Timeline |
+|---|---|---|
+| **Native iOS App** | React Native (Expo) app — full feature parity with web; offline FSRS review; biometric auth | Month 25–27 |
+| **Native Android App** | Same codebase as iOS via Expo | Month 26–28 |
+| **National Marketing Push** | Paid acquisition (Meta, TikTok, Google) targeting high-school students and parents in top AP states (TX, FL, NY, IL, WA) | Month 25+ |
+| **District Sales Team** | First 2 dedicated sales hires targeting district-level contracts; inbound from school pilot referrals | Month 25 |
+| **International Expansion — LATAM** | Full Spanish UI (`es.json`), LATAM-focused AP Spanish content, regional pricing | Month 28–30 |
+| **International Expansion — East Asia** | Simplified Chinese UI, AP Chinese/Japanese content expansion, regional pricing | Month 30–33 |
+| **AP Subject Completion** | Cover all 38 College Board AP subjects across TEXT, VISUAL, and LANGUAGE | Month 30 |
+| **AceOS API (B2B)** | Public API allowing schools and tutoring companies to embed AceOS modules | Month 32+ |
+| **RTL Language Support** | Arabic/Hebrew UI support for potential AP Arabic addition | Month 33+ |
+| **FERPA / COPPA Compliance Audit** | Full legal compliance audit for US school district contracts | Month 24–25 |
+| **SOC 2 Type II Certification** | Required for district-level contracts >$50K | Month 26–28 |
+
+---
+
+## 🚀 Go-To-Market Strategy
+
+### Phase 1 GTM: AP Season Organic + Influencer
+- **Channel 1 — TikTok/YouTube Study Influencers:** Partner with 10–15 micro-influencers (50K–500K followers) in the "studyblr" and "study with me" niche. Gifted Pro access + affiliate commission per conversion.
+- **Channel 2 — Reddit + Discord:** Organic presence in r/APStudents, r/Sat, AP subject Discord servers. Provide genuine value (FRQ feedback, study tips) before any promotion.
+- **Channel 3 — AP Teacher Outreach:** DM 500 AP teachers on Twitter/LinkedIn in February–March (peak planning season). Offer free class accounts for their students.
+- **Hook:** "The only AP prep tool with an AI that grades your FRQs like a College Board reader."
+- **Launch timing:** February 1 — gives students 90 days before May AP exams.
+
+### Phase 2 GTM: Parent Channel + Referral Engine
+- **Channel 1 — Facebook Parent Groups:** California HS parent groups are massive (50K–200K members). One authentic parent success story post = hundreds of signups.
+- **Channel 2 — Parent Email Referral:** Weekly progress email includes a referral CTA: "Know another parent whose kid is taking AP exams? They get 2 weeks free."
+- **Channel 3 — Nextdoor + Local Communities:** Hyper-local targeting in affluent California school districts (Palo Alto, Irvine, San Diego, Beverly Hills).
+
+### Phase 3–4 GTM: School Channel + PR
+- **Channel 1 — School Counselor Outreach:** School counselors are the gatekeepers for edtech recommendations. Target 200 California counselors with a "Results Report" showing GPA and AP score improvements.
+- **Channel 2 — PR:** "AI Study Tool Helps California Students Score More 5s on AP Exams" — pitch to EdWeek, TechCrunch Education, local TV news during AP season.
+- **Channel 3 — College Board Partnership Exploration:** Explore data partnership or co-marketing with College Board once scale and outcome data are proven.
+
+---
+
+## 📊 Success Metrics & KPI Dashboard
+
+| Metric | Month 6 Target | Month 12 Target | Month 18 Target | Month 24 Target |
+|---|---|---|---|---|
+| **MRR** | $20K | $100K | $250K | $400K |
+| **Active Students** | 2,000 | 8,000 | 20,000 | 45,000 |
+| **AP Subjects Covered** | 6 | 6 | 20 | 38 |
+| **Subject Types Live** | TEXT + VISUAL | TEXT + VISUAL | ALL THREE | ALL THREE |
+| **NPS** | ≥55 | ≥60 | ≥65 | ≥68 |
+| **7-Day Retention** | 45% | 55% | 65% | 70% |
+| **Avg Session Frequency** | 3x/week | 4x/week | 5x/week | 5x/week |
+| **FRQs Graded (cumulative)** | 5,000 | 50,000 | 250,000 | 1,000,000 |
+| **School Licenses** | 0 | 0 | 2 pilots | 5 contracts |
+| **Annual Plan %** | 10% | 20% | 30% | 35% |
+
+---
+
+## ⚠️ Risk Register
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| **College Board C&D on content** | Medium | High | All questions are original, College Board-aligned — never copied. Legal review before launch. Pluggable content system allows rapid swap if needed. |
+| **LLM grading accuracy below bar** | Medium | High | Human-in-the-loop audit of first 500 graded FRQs; accuracy threshold of 85% before public launch; `ILLMGradingProvider` allows swap to better model instantly. |
+| **STT accuracy for LANGUAGE mode** | Medium | Medium | Default to Web Speech API; swap to OpenAI Whisper for higher accuracy via `ISpeechProvider`; offer text-input fallback for all speaking tasks. |
+| **FSRS engine cold-start problem** | Low | Medium | Seed new users with conservative initial intervals; collect 50+ responses before FSRS personalizes aggressively; `IFSRSProvider` allows algorithm tuning without code changes. |
+| **LLM cost at scale** | High | Medium | TEXT grading uses cheap models (GPT-4o mini); VISUAL grading uses expensive models (GPT-4o) — route by `subject_type`. Cost per student modeled at $0.08/day at scale. |
+| **Competitor copies subject-type framework** | Medium | Medium | 12-month first-mover advantage + network effects from SIP data moat. Data is the moat, not the feature. |
+| **Student data privacy / FERPA** | Low | High | No PII sold. FERPA compliance built in from Phase 1. SOC 2 audit in Month 26. School contracts include DPA. |
+| **Burnout / scope creep** | High | High | Strict sprint scope. Stories not groomed = not in sprint. Phase gates enforced. |
+| **AP exam format changes by College Board** | Low | Medium | Pluggable content model — question format is config-driven. Bluebook UI updates are isolated to `VisualRenderer.tsx` and `TextRenderer.tsx`. |
+| **Low LANGUAGE mode adoption** | Medium | Low | Language Add-On is separately priced ($4.99/mo) — low downside. Feature-flagged per language. AP Spanish ships first; others gated on Spanish adoption data. |
+
+---
+
+## 🗺️ Master Timeline Summary
+
+| Phase | Months | Theme | North Star Milestone |
+|---|---|---|---|
+| **Phase 1** | 1–6 | Beachhead | ScoreBoost AP live · 6 AP subjects · $20K MRR · TEXT + VISUAL |
+| **Phase 2** | 7–12 | Expand | GradeGuard live · Daily habit formed · $100K MRR · SIP v1.0 |
+| **Phase 3** | 13–18 | Deepen | StudySensei live · LANGUAGE mode · 20 AP subjects · $250K MRR |
+| **Phase 4** | 19–24 | Network | SmartPack + AceIt Dashboard · Schools · $400K MRR |
+| **Phase 5** | 25–36 | Scale | Native apps · National · 38 AP subjects · $2M MRR |
+
+---
+
+*AceOS™ — Version 4.0 | April 2026 | Confidential — Internal Use Only*
+*"The system every student deserves."*
