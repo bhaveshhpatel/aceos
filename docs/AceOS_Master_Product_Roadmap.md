@@ -113,7 +113,7 @@ export interface ILLMGradingProvider {
   getModelInfo(): ProviderMeta;
 }
 
-// providers/llm/OpenAIGradingProvider.ts  
+// providers/llm/OpenAIGradingProvider.ts
 export class OpenAIGradingProvider implements ILLMGradingProvider { ... }
 
 // providers/llm/GeminiGradingProvider.ts
@@ -127,6 +127,98 @@ export const gradingProvider: ILLMGradingProvider =
 ```
 
 > **Sprint Grooming Rule:** Any story introducing a new external service MUST begin with defining its `IProvider` interface first. The interface is the acceptance criteria. Implementation is the story. Swap-in is free.
+
+---
+
+## 🎨 Subject-Type Rendering Framework
+
+> **Why this exists:** AP courses are not all text. AP Calculus needs LaTeX formula rendering and graph sketching. AP Biology needs labeled diagram tools. AP Spanish needs audio playback, pronunciation input, and accent-character keyboards. Building a one-size-fits-all content model fails all three. This framework defines the three rendering modes and how every feature must declare support for them.
+
+### The Three Subject Rendering Modes
+
+| Mode | `subjectType` Tag | AP Subjects | Core UI Needs | AI Grading Approach |
+|---|---|---|---|---|
+| **TEXT** | `TEXT` | AP Lang, AP Lit, AP US History, AP World History, AP Gov, AP Psych, AP Environmental Science (essay components) | Rich text editor, markdown rendering, annotation tools | LLM text analysis — rubric prompt injection, argument structure scoring |
+| **VISUAL / STEM** | `VISUAL` | AP Calc AB/BC, AP Stats, AP Physics 1/2/C, AP Chem, AP Bio, AP Computer Science A | MathJax/KaTeX formula rendering, graph canvas, diagram annotation, step-by-step equation builder, free-body diagram tools | Multimodal LLM (vision + text) — evaluates both written work and diagram/graph accuracy |
+| **LANGUAGE** | `LANGUAGE` | AP Spanish Language & Culture, AP French, AP Chinese, AP Japanese, AP Latin, AP Italian, AP German | Audio playback controls, speech input (microphone), pronunciation scoring, accent/special character keyboard, dual-script display (e.g., Hanzi + Pinyin) | Speech-to-text pipeline + LLM grammar/vocabulary scoring; pronunciation scored via phoneme comparison |
+
+### Subject-Type Feature Support Matrix
+
+Every feature built must be tagged against this matrix. Blank = not applicable. ✅ = required. ⏳ = future phase.
+
+| Feature | TEXT | VISUAL/STEM | LANGUAGE |
+|---|---|---|---|
+| Question renderer | Rich text + Markdown | MathJax + Canvas + Image | Audio player + Script display |
+| Student answer input | Text area / rich editor | Equation builder + Graph canvas + Drawing pad | Microphone + Text + Special char keyboard |
+| AI grading | LLM rubric text analysis | Multimodal LLM (vision+text) | STT → LLM grammar/vocab scorer |
+| Feedback display | Inline text annotations | Step-by-step equation correction + diagram overlay | Pronunciation score + grammar breakdown |
+| FSRS card content | Text front/back | Formula image + rendered equation | Audio clip + target language text |
+| Diagnostic questions | MCQ + short answer | MCQ + graph interpretation + equation solve | MCQ + listening comprehension + speaking prompt |
+| Bluebook simulator | Text essay interface | Split-screen equation scratch pad | N/A (Bluebook doesn’t cover language orals) |
+| StudySensei tutor | Socratic text dialogue | Step-by-step equation walkthrough | Conversational dialogue in target language |
+| FRQ grader | Essay/DBQ/LEQ grader | FRQ calculation + diagram grader | Spoken response grader ⏳ |
+| Spaced rep card | Text card | Equation / diagram card | Audio card with speaking challenge |
+
+### Subject-Type Data Model
+
+Every question, card, and content item in the database carries a `subject_type` field. This drives rendering at runtime — no if/else chains in UI components.
+
+```typescript
+type SubjectType = 'TEXT' | 'VISUAL' | 'LANGUAGE';
+
+interface Question {
+  id: string;
+  subject_type: SubjectType;         // drives renderer selection
+  locale: string;                     // e.g. 'en', 'es', 'zh-Hans'
+  content: QuestionContent;           // type-safe per SubjectType
+  rubric: Rubric;
+  ap_unit: string;
+  difficulty: 1 | 2 | 3 | 4 | 5;
+}
+
+// VISUAL type carries extra fields
+interface VisualQuestionContent extends QuestionContent {
+  latex?: string;                     // MathJax/KaTeX source
+  diagram_url?: string;               // stored in R2
+  graph_config?: GraphConfig;         // axes, labels, expected curve
+  requires_drawing: boolean;          // triggers canvas input
+}
+
+// LANGUAGE type carries extra fields
+interface LanguageQuestionContent extends QuestionContent {
+  audio_url?: string;                 // listening prompt (R2)
+  target_language: string;            // ISO 639-1 code
+  requires_speech_input: boolean;     // triggers microphone
+  script_display?: 'latin' | 'hanzi_pinyin' | 'hiragana_kanji' | 'cyrillic';
+}
+```
+
+### i18n Architecture
+
+| Layer | Implementation | Sprint |
+|---|---|---|
+| **UI Strings** | `next-intl` library — all hardcoded strings extracted to `/messages/{locale}.json` from Sprint 1 | Sprint 1 |
+| **Content Locale** | `locale` field on every Question, Rubric, StudyPlan record | Sprint 1 (schema) |
+| **AI Prompt Localization** | Prompt templates parameterized with `{target_language}` variable; separate system prompt per language course | Sprint 6 (FRQ grader) |
+| **RTL Support** | Tailwind `dir="rtl"` + `rtl:` variant classes; relevant for AP Arabic/Hebrew if added in Phase 5 | Phase 5 |
+| **Special Character Input** | Virtual keyboard component (`react-simple-keyboard`) with locale-specific key layouts; pluggable via `IKeyboardProvider` | Sprint 8 (Language mode) |
+| **Audio Content CDN** | All language audio files stored in Cloudflare R2 with `/{locale}/{subject}/{unit}/` path structure | Sprint 8 |
+| **TTS (Text-to-Speech)** | Pluggable `ISpeechProvider` — defaults to Web Speech API; swap to ElevenLabs/Google TTS for higher quality | Phase 3 |
+
+> **Sprint Grooming Reminder:** When writing any story that touches question content, answer input, or AI grading — the story must specify `subject_type: TEXT | VISUAL | LANGUAGE`. Stories that say "build question component" without specifying subject type are **not groomed** and not sprint-ready.
+
+---
+
+## 📦 Suite Packaging & Pricing Strategy
+
+| Tier | What's Included | Price | Target Buyer |
+|---|---|---|---|
+| **Free (Starter)** | GradeGuard (1 subject), ScoreBoost AP diagnostic only | $0 | Student/organic |
+| **Student Pro** | All 4 modules, full AI features, all subject types (TEXT + VISUAL + LANGUAGE) | $24.99/mo or $179/yr | Parent/student |
+| **Family Plan** | Student Pro for up to 3 kids | $34.99/mo or $249/yr | Parents |
+| **School License** | All modules for all students, teacher dashboards | $8/student/mo | Schools/districts |
+| **AP Sprint Pack** | ScoreBoost AP + StudySensei, 90-day AP season only | $59 one-time | Late-stage AP prep |
+| **Language Add-On** *(Phase 3+)* | Full LANGUAGE mode for AP foreign language subjects | $4.99/mo add-on or included in Pro | Students taking AP language courses |
 
 ---
 
