@@ -10,18 +10,18 @@
  *   - Schema field: accept_terms (not tos_accepted/privacy_accepted)
  *   - from('students').insert() — first insert call
  *   - from('consent_log').insert([...]) — second insert call
- *   - auth.admin.generateLink() — sends verification email
+ *   - auth.admin.generateLink() with type:'magiclink' — sends verification email
  *   - Rollback: auth.admin.deleteUser() if students insert fails
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Granular mocks per table ──────────────────────────────────────────────────
-const mockStudentsInsert  = vi.fn().mockResolvedValue({ error: null });
-const mockConsentInsert   = vi.fn().mockResolvedValue({ error: null });
-const mockDeleteUser      = vi.fn().mockResolvedValue({});
-const mockCreateUser      = vi.fn();
-const mockGenerateLink    = vi.fn().mockResolvedValue({ data: {}, error: null });
+const mockStudentsInsert = vi.fn().mockResolvedValue({ error: null });
+const mockConsentInsert  = vi.fn().mockResolvedValue({ error: null });
+const mockDeleteUser     = vi.fn().mockResolvedValue({});
+const mockCreateUser     = vi.fn();
+const mockGenerateLink   = vi.fn().mockResolvedValue({ data: {}, error: null });
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
@@ -48,7 +48,6 @@ function makeRequest(body: object) {
   }) as any;
 }
 
-// accept_terms is the real field name in signUpSchema
 const validBody = {
   first_name:   'Taylor',
   last_name:    'Swift',
@@ -78,11 +77,11 @@ describe('POST /api/auth/signup', () => {
     expect(body.success).toBe(true);
   });
 
-  it('calls generateLink with product-scoped redirectTo URL', async () => {
+  it('calls generateLink with type:magiclink and product-scoped redirectTo', async () => {
     await POST(makeRequest(validBody));
     expect(mockGenerateLink).toHaveBeenCalledWith(
       expect.objectContaining({
-        type:  'signup',
+        type:  'magiclink',
         email: 'taylor@test.com',
         options: expect.objectContaining({
           redirectTo: expect.stringContaining('/onboarding/score-boost-ap/age-gate'),
@@ -113,7 +112,6 @@ describe('POST /api/auth/signup', () => {
 
   it('inserts consent_log rows for ToS + Privacy Policy', async () => {
     await POST(makeRequest(validBody));
-    // consent_log insert receives an array of 2 rows
     expect(mockConsentInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ document_type: 'terms_of_service' }),
