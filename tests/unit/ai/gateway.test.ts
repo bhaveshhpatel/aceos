@@ -12,9 +12,17 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Hoist module mock — vi.mock() must be at top level to be hoisted by Vitest
+vi.mock('@/lib/ai/logAIUsage', () => ({
+  logAIUsage: vi.fn(),
+}));
+
 // These imports WILL FAIL until implementation exists — RED state is correct
 import { callAI, AIGatewayError } from '@/lib/ai/gateway';
 import type { AIRequest, AIResponse } from '@/lib/ai/gateway';
+import { logAIUsage } from '@/lib/ai/logAIUsage';
+
+const mockLogAIUsage = vi.mocked(logAIUsage);
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -71,7 +79,6 @@ describe('callAI routing', () => {
   it('uses the fallback route for an unknown route key without throwing', async () => {
     mockFetch.mockResolvedValueOnce(mockSuccessResponse('fallback response', 'gpt-4o-mini'));
 
-    // An unknown route should use fallback, not throw
     const result = await callAI({
       route: 'nonexistent_route_xyz' as any,
       messages: [{ role: 'user', content: 'test' }],
@@ -130,7 +137,6 @@ describe('callAI retry behaviour', () => {
       })
     ).rejects.toThrow(AIGatewayError);
 
-    // Should have tried initial + 2 retries = 3 total calls
     expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
@@ -164,10 +170,7 @@ describe('callAI usage logging', () => {
   });
 
   it('calls logAIUsage after a successful response without blocking return', async () => {
-    // logAIUsage is fire-and-forget — we spy via module mock
-    const logSpy = vi.fn().mockResolvedValue(undefined);
-    vi.mock('@/lib/ai/logAIUsage', () => ({ logAIUsage: logSpy }));
-
+    mockLogAIUsage.mockResolvedValue(undefined);
     mockFetch.mockResolvedValueOnce(mockSuccessResponse());
 
     const result = await callAI({
@@ -176,13 +179,10 @@ describe('callAI usage logging', () => {
       metadata: { student_id: 'student-uuid', question_id: 'q-001' },
     });
 
-    // Response must be returned — logging is non-blocking
     expect(result.content).toBeDefined();
-    // Flush all async timers so fire-and-forget logging resolves
     await vi.runAllTimersAsync();
-    // logSpy may be called async — assert it was scheduled
-    expect(logSpy).toHaveBeenCalledOnce();
-    expect(logSpy).toHaveBeenCalledWith(
+    expect(mockLogAIUsage).toHaveBeenCalledOnce();
+    expect(mockLogAIUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         route: 'frq_grading',
         model: expect.any(String),
@@ -195,13 +195,9 @@ describe('callAI usage logging', () => {
   });
 
   it('a logging failure does NOT throw or affect the returned response', async () => {
-    vi.mock('@/lib/ai/logAIUsage', () => ({
-      logAIUsage: vi.fn().mockRejectedValue(new Error('DB write failed')),
-    }));
-
+    mockLogAIUsage.mockRejectedValue(new Error('DB write failed'));
     mockFetch.mockResolvedValueOnce(mockSuccessResponse('success despite log failure'));
 
-    // Should NOT throw even when logging fails
     await expect(
       callAI({
         route: 'frq_grading',
