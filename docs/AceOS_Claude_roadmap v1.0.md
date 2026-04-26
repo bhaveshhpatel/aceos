@@ -16,7 +16,7 @@ These are non-negotiable realities that override any feature ambition in this do
 
 3. **Students will not change their behavior for your product.** The product must fit into what students already do: check grades obsessively, cram the night before, ask "what do I need on the final," and share results with friends. Any feature requiring sustained new habits (daily voice recordings, Feynman teach-backs, group Pomodoros) will be used by fewer than 10% of users and should not anchor the core experience.
 
-4. **College Board content is copyrighted.** Practice questions must be original, inspired by the style and skill level of official questions — not structurally cloned from released materials. Legal review required before content goes live.
+4. **College Board content is copyrighted — this is a content operations problem, not a legal disclaimer.** Practice questions must be original and written from scratch by qualified subject-matter experts. CEDs are permissible as structural reference only (what units exist, what skills are tested, what the point distribution is). Released AP exam questions, released FRQ prompts, and released DBQ document sets cannot be reproduced, closely paraphrased, or used as direct structural templates for algorithmic question generation. The line between "inspired by" and "structurally cloned" is not bright, and College Board has an active legal team that monitors prep companies. The only defensible position is clean-room content creation: SMEs write original questions from scratch with no released question in front of them. This means content creation is slower and more expensive than AI generation from released materials — budget and timeline accordingly. See Section 7 for the SME model that covers both content creation and grading audit.
 
 5. **Revenue targets in this document are targets, not forecasts.** They are directional benchmarks for go/no-go decisions. Do not present them to investors as projections without a supporting acquisition model.
 
@@ -389,8 +389,10 @@ Deliverables:
 - Subject selection screen: start with 6 subjects only (AP Chemistry, AP Biology, AP US History, AP World History, AP English Language, AP Calculus AB)
 - Privacy policy and Terms of Service live (lawyer-reviewed)
 - FERPA data handling documentation complete
+- **College Board content legal review complete:** Education attorney reviews the content creation process before any SME writes a single question. Output of this review is a written Content Creation Protocol document that every SME contractor receives and signs before starting work. The protocol defines: what CEDs can be used for (structural reference only), what is prohibited (reproducing or templating from released questions), and how original content is defined and documented. This document is the legal paper trail if College Board ever challenges the content.
+- **SME contractor agreements drafted:** Content creation agreement template reviewed by legal counsel. All SMEs sign before receiving any content brief. Agreement explicitly prohibits use of any released AP exam material as a direct template.
 
-**Definition of Done:** A student can sign up, confirm parental consent (if under 18), select an AP subject, and reach the dashboard — with all data encrypted at rest and row-level security enforced.
+**Definition of Done:** A student can sign up, confirm parental consent (if under 18), select an AP subject, and reach the dashboard — with all data encrypted at rest and row-level security enforced. College Board content legal review is complete and Content Creation Protocol is signed off before any diagnostic questions are written.
 
 ---
 
@@ -413,7 +415,7 @@ Deliverables:
 
 Deliverables:
 - 50-question diagnostic for each of the 4 text-heavy subjects (AP US History, AP World History, AP English Language, AP English Literature)
-- Questions are original — not copied from College Board. Written by subject matter experts and audited internally. Legal sign-off on content strategy.
+- Questions are original — written from scratch by subject-matter experts following the Content Creation Protocol established in Sprint 1. No released AP question is used as a template at any stage, including drafting. SMEs work from the CED skill descriptors only, not from released exam banks. AI may be used to generate first drafts, but every AI-generated question must be fully rewritten by an SME before use — AI output is a starting point for human authorship, not a finished product.
 - Question types: multiple choice with 4 options (one correct, one partially plausible, two clearly wrong — mirrors College Board format in structure, not content)
 - Diagnostic is timed: 45-minute limit, auto-submits
 - After submission: unit-level heatmap showing mastery by topic area
@@ -941,7 +943,7 @@ Deliverables:
 | Risk | Likelihood | Impact | Specific Mitigation | Owner |
 |---|---|---|---|---|
 | **LMS ToS violation via extension** | High | Critical | DOM-only read, no token extraction, legal sign-off required before Sprint 15 ships. If legal review fails, launch with manual entry only. | Legal + Engineering |
-| **College Board content copyright** | Medium | High | All questions are original. Subject-matter experts write and audit content. Legal review of content strategy in Sprint 1. Do not clone released questions. | Legal + Content |
+| **College Board content copyright** | Medium | Critical | Clean-room content creation only. SMEs write original questions from scratch — no released question is used as a direct template, even as a starting point. CEDs used for structural reference only (units, skills, point distribution). Legal counsel reviews the content creation process and guidelines in Sprint 1 before any content is written. All SME contractors sign a content creation agreement explicitly prohibiting use of released materials as templates. AI-generated question variants are not used in production without full SME rewrite — AI can draft, SME must rewrite from scratch before any question goes live. If College Board issues a cease-and-desist at any point, FRQ grading (which grades student-written responses against public rubrics) is the legally safer product surface and continues; original practice question delivery is the exposure point and pauses pending legal review. | Legal + Content |
 | **AI grading quality below student trust threshold** | High | High | Three-tier human review model (see Section 7). Tier 1: pre-launch content audit by AP-certified SMEs before any subject's FRQ grader goes live — hard gate, not a suggestion. Tier 2: 2% random weekly sample audit by SME contractors, with automatic pause trigger if agreement rate drops below 65% in any subject. Tier 3: student-triggered dispute review within 24 hours. AI confidence scores are NOT used as the primary quality signal — they catch confused AI but not confidently wrong AI. Systematic errors are caught by the weekly sample audit. | Product + Content |
 | **FERPA non-compliance** | Medium | Critical | Legal review in Sprint 1. Privacy policy lawyer-drafted. Parental consent gate before any student data is stored. FERPA audit in Sprint 28. | Legal |
 | **High AI cost at scale** | High | Medium | Cost per student tracked from Month 1. Model routing: Groq for low-stakes responses, GPT-4o only where quality requires it. Redis caching reduces repeat AI calls. Target: <$2/student/month by Month 12. | Engineering |
