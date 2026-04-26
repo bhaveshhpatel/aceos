@@ -5,8 +5,12 @@
  * Email + password sign-in.
  * Submits to POST /api/auth/signin.
  * Routes to /dashboard or /onboarding/age-gate based on server response.
+ *
+ * useSearchParams() must live inside a component wrapped with <Suspense> to
+ * satisfy Next.js 14 static generation. The outer SignInForm shell is the
+ * Suspense boundary; SignInFormInner holds all search-param logic.
  */
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,11 +23,10 @@ import { Divider } from '@/components/ui/Divider';
 import { Alert } from '@/components/ui/Alert';
 import { OAuthButton } from './OAuthButton';
 
-export function SignInForm() {
+function SignInFormInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(
-    // Surface OAuth errors from the callback route
     searchParams.get('error')
       ? 'Sign-in with Google failed. Please try again or use email instead.'
       : null
@@ -58,7 +61,6 @@ export function SignInForm() {
       return;
     }
 
-    // Respect the `next` param from middleware redirect, else use server suggestion
     const next = searchParams.get('next') ?? data.redirectTo ?? '/dashboard';
     router.push(next);
   }
@@ -70,7 +72,6 @@ export function SignInForm() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
-      {/* Header */}
       <div className="mb-6 text-center">
         <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gradient text-white text-xl font-bold shadow-raised">
           A
@@ -81,17 +82,14 @@ export function SignInForm() {
         </p>
       </div>
 
-      {/* Google OAuth */}
       <OAuthButton />
 
       <Divider label="or" className="my-5" />
 
-      {/* Server-level alert */}
       {serverError && (
         <Alert message={serverError} type="error" className="mb-5" />
       )}
 
-      {/* Session expired message */}
       {searchParams.get('expired') && !serverError && (
         <Alert
           type="info"
@@ -138,17 +136,11 @@ export function SignInForm() {
           )}
         </div>
 
-        <Button
-          type="submit"
-          fullWidth
-          size="lg"
-          loading={isSubmitting}
-        >
+        <Button type="submit" fullWidth size="lg" loading={isSubmitting}>
           Sign In
         </Button>
       </form>
 
-      {/* Sign-up link */}
       <p className="mt-6 text-center text-sm text-neutral-500">
         Don&apos;t have an account?{' '}
         <Link
@@ -159,5 +151,13 @@ export function SignInForm() {
         </Link>
       </p>
     </motion.div>
+  );
+}
+
+export function SignInForm() {
+  return (
+    <Suspense fallback={null}>
+      <SignInFormInner />
+    </Suspense>
   );
 }
