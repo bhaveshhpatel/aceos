@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/signin?error=missing_code`);
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
   if (exchangeError || !data.user) {
