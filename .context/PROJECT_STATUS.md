@@ -66,7 +66,7 @@ April 26, 2026 — Session with Perplexity AI (GitHub + Supabase MCP connectors)
 | TS2-04 | Error Handling | ✅ `AIError`, `handleAIError`, Zod schema |
 | TS2-05 | QA Harness | ✅ `scripts/qa/harness.ts` + types |
 
-**CI Status:** GitHub Actions passing — 59/59 tests green (as of commit `24de83b`)
+**CI Status:** GitHub Actions passing — 59/59 tests green
 
 ---
 
@@ -75,42 +75,26 @@ Diagnostic flow, MCQ engine, FRQ grader UI. Starts after Sprint 1 Functional is 
 
 ---
 
-## Everything Built This Session (April 26, 2026)
+## CI/CD Pipeline Status
 
-### Standards + Context
-- `.context/FRONTEND_STANDARDS.md` — full principal engineer frontend standards
-- `.context/DEPLOYMENT_STATUS.md` — Vercel + Railway + Modal deployment plan and checklists
-- `.context/PROJECT_STATUS.md` — this file (kept current)
+### GitHub Actions — `.github/workflows/preview.yml`
+- **Trigger:** `pull_request` to `main` (opened, synchronize, reopened)
+- **What it does:** Runs Vitest unit tests only — deploy is handled by Vercel natively
+- **Permissions:** `contents: read` on test job (scoped correctly)
+- **Status:** ✅ Fully working as of commit `d8a7252`
+- **Branch:** `ci/verify-preview-pipeline` (open PR — merge when ready)
 
-### Batch 1 — Foundation
-- `package.json`, `tailwind.config.ts`, `postcss.config.js`, `app/globals.css`
-- `app/layout.tsx`, `app/page.tsx` (redirects to /signin)
-- `app/(auth)/layout.tsx`, `signin/page.tsx`, `signup/page.tsx`, `verify-email/page.tsx`
-- `app/auth/callback/route.ts` — OAuth + email verification (now product-scoped)
-- `middleware.ts` — session refresh + route protection (now product-scoped paths)
-- `lib/supabase/client.ts`, `lib/utils.ts`
-- `components/ui/` — Button, Input, Divider, Alert
-- `types/auth.ts` — Zod schemas + TypeScript types
+### Key fixes made this session
+1. **403 HttpError on `github-script`** — fixed by adding `pull-requests: write` + `issues: write` permissions to the preview job (commit `2271d6b`)
+2. **Vercel 100 deployments/day free tier limit hit** — removed manual CLI deploy job entirely
+3. **Switched to Vercel native GitHub integration** — no CLI quota burn, preview URL posted automatically by Vercel bot (commit `d8a7252`)
 
-### Batch 2 — S1-F-01 + S1-F-02
-- `app/api/auth/signup/route.ts` — full signup with rollback, consent log, product-aware redirect
-- `app/api/auth/signin/route.ts` — signin with account status checks
-- `hooks/useAuth.ts`
-- `components/features/auth/` — OAuthButton, SignUpForm, SignInForm, VerifyEmailScreen, AuthErrorBoundary
-
-### Suite Alignment (post-Batch 2)
-- **`config/`** — `analytics.config.ts`, `email.config.ts`, `payments.config.ts`, `flags.config.ts`
-- **`lib/providers/`** — `analytics/`, `email/`, `payments/`, `flags/` — all vendor abstraction layers
-- **`lib/sip/index.ts`** — `getSIP()` — Student Intelligence Profile fetch, product-scoped
-- **`lib/sip/ace-rank.ts`** — `computeAceRank()` + `rankUnits()` — exact formula from PROJECT_CONTEXT
-- **`components/features/`** — product-scoped subdirs: `score-boost-ap/`, `grade-guard/`, `study-sensei/`, `smart-pack/`
-- **URL pivot** — `/onboarding/[product]/age-gate`, `/onboarding/[product]/subjects`, `/[product]/dashboard`
-- **`app/(onboarding)/`** route group with `[product]` dynamic segment shells
-- **`app/(dashboard)/`** route group with `[product]/dashboard` shell
-
-### Supabase Migrations Applied (in order)
-1. `sprint_1_auth_schema` — students, consent_log, subjects (6 AP subjects seeded), student_subjects, mastery_map, enums, RLS, indexes
-2. `add_products_table_and_product_scoping` — products table (4 products seeded), product_id FK on subjects + student_subjects + mastery_map, backfill to score-boost-ap
+### Vercel Native Integration — Setup Status
+- **Repo connected in Vercel dashboard:** ⚠️ Needs manual step — Settings → Git → Connect `bhaveshhpatel/aceos`
+- **Preview Deployments enabled:** ⚠️ Needs verification in Vercel dashboard
+- **Required Check configured:** ⚠️ Needs manual step — Settings → Git → Required Checks → add `Vitest — Unit Tests`
+- **`VERCEL_TOKEN` GitHub Secret:** ⚠️ Can be deleted (no longer used by CI)
+- **`SUPABASE_SERVICE_ROLE_KEY` in Vercel env vars:** ❌ Still not set — required before first real deploy
 
 ---
 
@@ -121,17 +105,34 @@ Diagnostic flow, MCQ engine, FRQ grader UI. Starts after Sprint 1 Functional is 
 - **Migrations applied:** `ai_usage_log`, `sprint_1_auth_schema`, `add_products_table_and_product_scoping`
 - **`SUPABASE_SERVICE_ROLE_KEY`:** ❌ NOT yet set in Vercel env vars — required before first deploy
 
-### Deployment
-- **Vercel:** ❌ Not connected yet — see `.context/DEPLOYMENT_STATUS.md`
-- **Railway:** Not needed until Sprint 2 Functional
-- **Decision:** Deploy to Vercel after Sprint 1 Functional is fully complete
+### Vercel
+- **Native Git integration:** ⚠️ Manual dashboard steps still needed (see CI/CD section above)
+- **Production branch:** `main`
+
+### Railway
+- Not needed until Sprint 2 Functional
 
 ### Modal.com STEM Sandbox
 - **Files:** ✅ pushed to `modal_sandbox/`
 - **Deployed:** ❌ NOT deployed — not blocking Sprint 1
 
-### GitHub Actions CI
-- **Status:** ✅ 59/59 tests passing (may need update after structural changes)
+---
+
+## Open PRs
+
+| Branch | Purpose | Status |
+|---|---|---|
+| `ci/verify-preview-pipeline` | CI pipeline setup + Vercel native integration switch | ✅ Ready to merge after Vercel dashboard steps are confirmed |
+
+---
+
+## Product Manual Steps Still Outstanding (Phase 1)
+
+1. **Write Privacy Policy** — required before any user can complete sign-up (S1-F-08 checkbox links to it)
+2. **Write Terms of Service** — same as above
+3. **Write parental consent email copy** — needed for S1-F-09 (2–3 sentence product description + Approve/Decline template)
+
+> No curriculum upload needed for Phase 1 — diagnostic is "Coming Soon" in Sprint 1. Content is a Sprint 2 concern.
 
 ---
 
@@ -183,6 +184,7 @@ aceos/
 | `middleware.ts` | Route protection + session refresh |
 | `lib/supabase/server.ts` | Supabase SSR server client |
 | `lib/ai/gateway.ts` | AI gateway — routes by model_map.json |
+| `.github/workflows/preview.yml` | CI — Vitest tests only, Vercel deploy via native integration |
 
 ---
 
@@ -200,18 +202,22 @@ aceos/
 - Railway not needed until Sprint 2 Functional
 - Dark mode deferred to Phase 2
 - `npm install` in CI instead of `npm ci` (no lock file committed)
+- Vercel deploy via native GitHub integration, NOT CLI — avoids 100/day free tier quota
+- CI workflow only runs tests — Vercel native integration handles preview deploys independently
 
 ---
 
 ## Immediate Next Steps
 
-1. **S1-F-03** — Age Gate & Parental Consent (`/onboarding/score-boost-ap/age-gate`)
-2. **S1-F-05** — AP Subject Selection (`/onboarding/score-boost-ap/subjects`)
-3. **S1-F-06** — Student Dashboard Shell (`/score-boost-ap/dashboard`)
-4. **S1-F-09** — Parental Consent Email (email provider abstraction + template)
-5. **S1-F-10** — Forgot Password flow
-6. **End of sprint** — Vercel deploy (see DEPLOYMENT_STATUS.md)
+1. **Vercel dashboard** — connect repo + enable preview deploys + set Required Check (manual — see CI/CD section)
+2. **Merge** `ci/verify-preview-pipeline` PR once Vercel steps are confirmed
+3. **S1-F-03** — Age Gate & Parental Consent (`/onboarding/score-boost-ap/age-gate`)
+4. **S1-F-05** — AP Subject Selection (`/onboarding/score-boost-ap/subjects`)
+5. **S1-F-06** — Student Dashboard Shell (`/score-boost-ap/dashboard`)
+6. **S1-F-09** — Parental Consent Email (email provider abstraction + template)
+7. **S1-F-10** — Forgot Password flow
+8. **End of sprint** — Vercel deploy (set `SUPABASE_SERVICE_ROLE_KEY` in Vercel env first)
 
 ---
 
-*Updated: April 26, 2026 | Suite alignment complete | S1-F-01/02/04/07/08 done | Next: S1-F-03*
+*Updated: April 26, 2026 | CI pipeline complete | Vercel native integration pending dashboard steps | Next: merge PR then S1-F-03*
