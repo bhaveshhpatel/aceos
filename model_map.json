@@ -1,0 +1,71 @@
+{
+  "routes": {
+    "frq_grading": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "max_tokens": 2000,
+      "temperature": 0.2,
+      "reasoning": "FRQ grading requires highest accuracy and rubric fidelity"
+    },
+    "frq_grading_stem": {
+      "provider": "openai",
+      "model": "gpt-4o",
+      "max_tokens": 2000,
+      "temperature": 0.1,
+      "vision": true,
+      "reasoning": "STEM grading requires vision + high accuracy for step evaluation"
+    },
+    "diagnostic_mcq": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "max_tokens": 500,
+      "temperature": 0.3,
+      "reasoning": "MCQ evaluation is lower stakes — mini is sufficient and cheaper"
+    },
+    "wrong_answer_explainer": {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "max_tokens": 800,
+      "temperature": 0.4,
+      "reasoning": "Explanations need speed, not maximum accuracy — Groq latency wins here"
+    },
+    "study_plan_generation": {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "max_tokens": 1200,
+      "temperature": 0.3,
+      "reasoning": "Study plans are structured and benefit from Groq speed"
+    },
+    "score_prediction": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "max_tokens": 300,
+      "temperature": 0.1,
+      "reasoning": "Score prediction needs determinism more than creativity"
+    },
+    "tutor_socratic": {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "max_tokens": 600,
+      "temperature": 0.5,
+      "reasoning": "Tutor needs fast responses to maintain conversational flow"
+    },
+    "fallback": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "max_tokens": 500,
+      "temperature": 0.3,
+      "reasoning": "Safe default for any unknown route"
+    }
+  },
+  "providers": {
+    "openai": {
+      "env_key": "OPENAI_API_KEY",
+      "base_url": "https://api.openai.com/v1"
+    },
+    "groq": {
+      "env_key": "GROQ_API_KEY",
+      "base_url": "https://api.groq.com/openai/v1"
+    }
+  }
+}
