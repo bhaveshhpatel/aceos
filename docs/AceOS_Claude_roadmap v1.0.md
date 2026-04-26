@@ -224,7 +224,93 @@ This section is Phase 1, not Phase 4.
 
 ---
 
-## 7. Go-To-Market Strategy
+## 7. Human Review Architecture
+
+This section exists because the previous roadmap drafts (v14.0 and v4.1) both made the same mistake: they placed human review downstream, as a real-time safety net on individual AI grading outputs. That design fails at scale for three reasons that compound each other:
+
+1. **LLMs are confidently wrong, not just uncertainly wrong.** A confidence-score threshold catches the AI when it is confused. It does not catch the AI when it is wrong with high confidence — which is the more dangerous failure mode in FRQ grading, where nuanced humanties essays can be mis-graded persuasively.
+2. **A 48-hour review turnaround breaks the learning loop.** Students submitting FRQs at 9pm before an exam need feedback that night, not two days later. A flagged response that goes into a queue is a broken experience at the highest-engagement moment.
+3. **Per-response SME review is not cost-neutral at scale.** At 250,000+ FRQs in Phase 3, even a 5% flag rate is 12,500 human reviews. At $3–5 per review, that is a $37K–$62K seasonal cost spike concentrated in the 6 weeks before AP exams.
+
+The correct design moves human work **upstream into content** and **sideways into sampling** — not downstream into real-time response queues.
+
+### The Three-Tier Human Review Model
+
+#### Tier 1: Pre-Launch Content Audit (Upstream)
+**What it catches:** Wrong rubric templates, inaccurate model answers, bad diagnostic questions, rubric language that does not match College Board criteria.  
+**When it happens:** Before each subject launches. Non-negotiable gate. No subject ships without passing this audit.  
+**Who does it:** Hired AP teachers or College Board-certified AP readers (College Board trains AP exam readers annually — these are the gold standard for FRQ calibration). Minimum one SME per subject at launch.  
+**What they review:**
+- Every rubric template used for grading (each rubric point definition)
+- Every model answer used for post-grading reference
+- A sample of 50 AI-graded FRQs for that subject, scored independently, compared to AI output
+- Agreement threshold: AI rubric point agreement must match SME scoring within ±1 point on 80% of essays before the subject launches
+
+**Cost model:** Fixed cost per subject launch, not per student. Approximately $500–$1,500 per subject depending on exam complexity (STEM subjects take longer). This is a content quality cost, not a grading cost.
+
+**Implication:** The AI grading quality is determined almost entirely by the quality of the rubric templates and model answers it grades against. If these are correct, the AI will be correct most of the time by default. Human work at this tier has an order-of-magnitude higher leverage than human work at the response-review tier.
+
+---
+
+#### Tier 2: Ongoing Random Sample Audit (Sideways)
+**What it catches:** AI grading drift over time, systematic errors on specific question types, quality degradation after model updates.  
+**When it happens:** Weekly, every week, permanently. This is not a launch activity — it is an operational process.  
+**Who does it:** Part-time SME contractors, paid per batch.  
+**How it works:**
+- Every week, 2% of all FRQ responses graded that week are randomly selected (stratified by subject and FRQ type)
+- SME scores each selected response independently, without seeing the AI's score first
+- AI score and SME score are compared. Agreement rate is tracked as a KPI.
+- **Agreement threshold:** If the AI-to-SME agreement rate drops below 75% in any subject in any week, that subject's FRQ grading is flagged for review. If it drops below 65%, FRQ grading for that subject is paused until root cause is identified and fixed.
+- Results are reviewed weekly by the product team. Trend data (improving or degrading agreement) is more important than any single week's number.
+
+**Cost model at scale:**
+- Phase 1 (5,000 FRQs/month): 100 sampled FRQs/month at ~$4/review = ~$400/month
+- Phase 2 (25,000 FRQs/month): 500 sampled FRQs/month = ~$2,000/month
+- Phase 3 (200,000 FRQs/month): 4,000 sampled FRQs/month = ~$16,000/month
+
+This is a predictable, budgetable operational cost — not a spike. It also generates the most valuable data set in the company: a ground-truth library of human-graded FRQs that can be used to retrain and improve the grading model over time.
+
+---
+
+#### Tier 3: Student-Triggered Review (On Demand)
+**What it catches:** Individual cases where the AI graded incorrectly and the student knows it.  
+**When it happens:** On demand, initiated by the student.  
+**Who does it:** SME contractor, same pool as Tier 2.  
+**How it works:**
+- Any student can flag a graded FRQ as "I disagree with this score" with one tap
+- They provide a brief reason (optional, dropdown: "Missing rubric point" / "Rubric point unfairly denied" / "Feedback doesn't make sense")
+- The response goes into a review queue. SME reviews within 24 hours.
+- If the AI was wrong: the student's score is updated, the student is notified, and the case is logged as a training signal
+- If the AI was right: student is notified with an explanation of why the original score stands
+- Expected flag rate: less than 1% of submissions (based on comparable AI grading products). At Phase 3 volume, this is approximately 2,000 flagged FRQs/month, or roughly 2,000 SME reviews/month at $4/review = $8,000/month
+
+**Why this matters beyond accuracy:** A student who disagrees with a grade and gets a human review within 24 hours is a student who trusts the product. This tier is as much a trust mechanism as it is a quality mechanism.
+
+---
+
+### What This Model Does Not Include
+
+- **Real-time flagging queues based on AI confidence scores:** Removed. Confidence scores do not reliably identify the most dangerous failure mode (confident wrong answers). The sample audit catches systematic errors more reliably.
+- **Human review for diagnostic multiple-choice questions:** Not required. Multiple-choice answers are unambiguous. The Python sandbox handles STEM answer verification. The only grading that requires human judgment is open-ended FRQ responses.
+- **Human review for StudySensei tutoring conversations:** Not required. Tutoring conversations are not scored — they are dialogues. Quality is measured through the downstream outcome: does the student answer the next practice question on that concept correctly?
+
+---
+
+### Human Review KPIs
+
+These metrics are tracked weekly by the product team and reviewed monthly.
+
+| Metric | Green | Yellow | Red (Action Required) |
+|---|---|---|---|
+| **Pre-launch audit pass rate** | 100% of subjects audited before launch | — | Any subject launched without audit |
+| **Weekly sample agreement rate (per subject)** | ≥80% | 75–79% | <75% — trigger investigation; <65% — pause FRQ grading for subject |
+| **Student flag rate** | <1% of FRQs | 1–2% | >2% — systematic quality problem |
+| **Tier 3 review turnaround** | <24 hours | 24–48 hours | >48 hours — breach of student trust |
+| **SME-corrected scores (% of Tier 3 reviews)** | <15% (AI mostly right) | 15–25% | >25% — model needs retraining |
+
+---
+
+## 8. Go-To-Market Strategy
 
 ### Phase 1 GTM: AP Season Organic (Months 1–6)
 
@@ -398,9 +484,22 @@ Deliverables:
 - One model response generated for reference — not shown immediately, shown only after student reads their own feedback
 - Revision loop: student can resubmit after revising and see their score change
 
-**Quality gate:** Before Sprint 7 ships, 100 FRQs must be graded by the AI and manually audited by a subject-matter expert. Accuracy target: AI rubric point agreement within ±1 point of expert for 80% of essays.
+**Pre-launch content audit (Tier 1 — required gate before this sprint ships):**
+- All rubric templates for APUSH, AP Lang, AP Psych, and AP Gov reviewed and approved by hired AP readers
+- All model answers reviewed and approved by subject-matter experts
+- 50 AI-graded FRQs per subject scored independently by SME. Agreement rate must reach ≥80% before the FRQ grader goes live.
+- This audit is a hard stop. The FRQ grader does not ship until this passes. A failed audit means the rubric templates are revised and re-audited — not that the threshold is lowered.
 
-**Definition of Done:** A student submits an AP US History DBQ and receives a rubric heatmap, line-level annotations, and a score — with the option to revise and resubmit.
+**Ongoing sample audit (Tier 2 — begins the week FRQ grader ships):**
+- Starting Week 13, 2% of all graded FRQs are randomly pulled each week for SME review
+- Agreement rate tracked weekly. If it drops below 75% in any subject, that subject is flagged. Below 65%, FRQ grading for that subject pauses.
+
+**Student dispute flow (Tier 3 — ships with the FRQ grader):**
+- "Dispute this score" button available on every graded FRQ
+- Disputed responses reviewed by SME within 24 hours
+- Student notified of outcome with explanation
+
+**Definition of Done:** A student submits an AP US History DBQ and receives a rubric heatmap, line-level annotations, and a score — with the option to revise and resubmit. Pre-launch audit is complete and Tier 2 sampling is running.
 
 ---
 
@@ -450,16 +549,23 @@ Deliverables:
 
 ---
 
-**Sprint 11 — Weeks 21–22: Subject Expansion + QA**
+**Sprint 11 — Weeks 21–22: Subject Expansion + QA + Human Review Ops**
 
 Deliverables:
 - Add AP English Literature and AP Statistics to supported subjects (total: 8 subjects)
+- **Pre-launch content audit for new subjects:** AP English Lit and AP Statistics rubric templates and model answers reviewed and approved by SMEs before these subjects go live. Same ≥80% agreement threshold applies.
 - Full QA pass on all diagnostic, practice, and FRQ flows for all 8 subjects
 - Performance testing: all AI responses under 8 seconds at 95th percentile (this is the user-tolerance threshold)
 - Accessibility pass: keyboard navigation, screen reader compatibility for core flows
 - Bug bash: internal team + 20 beta students; all P1 issues resolved before Sprint 12
+- **Human review operations setup:**
+  - Internal dashboard for Tier 2 (weekly sample audit): shows randomly selected FRQs, side-by-side AI score vs. SME score entry, agreement rate per subject per week
+  - Internal dashboard for Tier 3 (student disputes): queue of disputed FRQs, SME review interface, student notification trigger
+  - SME contractor network established: minimum 2 qualified AP readers per subject (for redundancy)
+  - Weekly sample audit process documented and running (first sample pulled from Sprint 7–10 FRQ volume)
+- **First Tier 2 audit report reviewed internally:** What is the agreement rate per subject after the first 4 weeks of live grading? Are there systematic failure patterns? This report informs Phase 2 content priorities.
 
-**Definition of Done:** All 8 subjects pass QA. No P1 bugs open. AI response time under 8s at P95.
+**Definition of Done:** All 8 subjects pass QA. No P1 bugs open. AI response time under 8s at P95. Tier 2 weekly sample audit is running and producing a report. Tier 3 dispute queue is live and first disputes have been reviewed within 24 hours.
 
 ---
 
@@ -836,7 +942,7 @@ Deliverables:
 |---|---|---|---|---|
 | **LMS ToS violation via extension** | High | Critical | DOM-only read, no token extraction, legal sign-off required before Sprint 15 ships. If legal review fails, launch with manual entry only. | Legal + Engineering |
 | **College Board content copyright** | Medium | High | All questions are original. Subject-matter experts write and audit content. Legal review of content strategy in Sprint 1. Do not clone released questions. | Legal + Content |
-| **AI grading quality below expectations** | High | High | 100-FRQ human audit before FRQ grader launches. Ongoing: weekly sample of 50 graded FRQs reviewed by subject experts. Quality threshold: 80% rubric agreement. If it drops below 70%, FRQ grading is paused. | Product + Content |
+| **AI grading quality below student trust threshold** | High | High | Three-tier human review model (see Section 7). Tier 1: pre-launch content audit by AP-certified SMEs before any subject's FRQ grader goes live — hard gate, not a suggestion. Tier 2: 2% random weekly sample audit by SME contractors, with automatic pause trigger if agreement rate drops below 65% in any subject. Tier 3: student-triggered dispute review within 24 hours. AI confidence scores are NOT used as the primary quality signal — they catch confused AI but not confidently wrong AI. Systematic errors are caught by the weekly sample audit. | Product + Content |
 | **FERPA non-compliance** | Medium | Critical | Legal review in Sprint 1. Privacy policy lawyer-drafted. Parental consent gate before any student data is stored. FERPA audit in Sprint 28. | Legal |
 | **High AI cost at scale** | High | Medium | Cost per student tracked from Month 1. Model routing: Groq for low-stakes responses, GPT-4o only where quality requires it. Redis caching reduces repeat AI calls. Target: <$2/student/month by Month 12. | Engineering |
 | **Scope creep killing execution** | High | High | Phase gates are enforced. Features not in the current phase sprint plan go to backlog, not active sprint. PM has veto on mid-sprint scope additions. | Product |
