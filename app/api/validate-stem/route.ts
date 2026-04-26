@@ -14,7 +14,7 @@ import { handleAIError } from '@/lib/ai/handleAIError';
 import type { STEMValidationRequest } from '@/types/modal';
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

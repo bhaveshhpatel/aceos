@@ -5,13 +5,20 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
 
+# Vercel preview deploys are handled automatically via the native GitHub integration.
+# This workflow only runs tests. Vercel posts the preview URL comment on its own.
+
 jobs:
   # ──────────────────────────────────────────────────────────────────
-  # 1. Run all Vitest tests against the PR branch
+  # Run all Vitest tests against the PR branch
+  # Vercel's native integration will NOT deploy if this check fails
+  # when "Required Checks" is configured in the Vercel project settings.
   # ──────────────────────────────────────────────────────────────────
   test:
     name: Vitest — Unit Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -39,89 +46,3 @@ jobs:
           name: coverage-${{ github.sha }}
           path: coverage/
           retention-days: 14
-
-  # ──────────────────────────────────────────────────────────────────
-  # 2. Deploy to Vercel preview and post URL as PR comment
-  # ──────────────────────────────────────────────────────────────────
-  preview:
-    name: Vercel Preview Deploy
-    runs-on: ubuntu-latest
-    needs: test          # Never deploy if tests fail
-    environment: preview
-    outputs:
-      preview_url: ${{ steps.deploy.outputs.preview_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Vercel CLI
-        run: npm install -g vercel@latest
-
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build project
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          NEXT_PUBLIC_SUPABASE_URL:      https://olybgkhggqnmrfcjjojy.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9seWJna2hnZ3FubXJmY2pqb2p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTY5NTcsImV4cCI6MjA5Mjc5Mjk1N30.cPsp03NU6KiRE0gWQwkD_kWNpyrjSqBn-8OoJTe3Rh4
-
-      - name: Deploy to Vercel preview
-        id: deploy
-        run: |
-          PREVIEW_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
-          echo "Deployed to: $PREVIEW_URL"
-
-      - name: Comment preview URL on PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const previewUrl = '${{ steps.deploy.outputs.preview_url }}';
-            const sha = '${{ github.sha }}'.substring(0, 7);
-            const body = [
-              '## 🚀 Vercel Preview Deployed',
-              '',
-              `**Preview URL:** ${previewUrl}`,
-              `**Commit:** \`${sha}\``,
-              `**Branch:** \`${{ github.head_ref }}\``,
-              '',
-              '### ✅ Test status',
-              'All Vitest unit tests passed before this deploy.',
-              '',
-              '### 🔗 Quick links',
-              `- [Sign In](${previewUrl}/signin)`,
-              `- [Sign Up](${previewUrl}/signup)`,
-              `- [Verify Email](${previewUrl}/verify-email)`,
-              `- [Age Gate](${previewUrl}/onboarding/score-boost-ap/age-gate)`,
-              '',
-              '> ⚠️ Preview uses the **production Supabase database**. Do not run destructive test data without a test account.',
-            ].join('\n');
-
-            // Find existing bot comment and update it, or create new one
-            const comments = await github.rest.issues.listComments({
-              owner:       context.repo.owner,
-              repo:        context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.data.find(c =>
-              c.user?.type === 'Bot' && c.body?.includes('Vercel Preview Deployed')
-            );
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner:      context.repo.owner,
-                repo:       context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner:        context.repo.owner,
-                repo:         context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }

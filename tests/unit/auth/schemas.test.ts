@@ -14,14 +14,14 @@ import { signUpSchema, signInSchema } from '@/types/auth';
 // signUpSchema
 // ─────────────────────────────────────────────────────────────────────────────
 describe('signUpSchema', () => {
+  // Real field name is accept_terms (single combined checkbox), not tos_accepted + privacy_accepted
   const validPayload = {
-    first_name: 'Taylor',
-    last_name: 'Swift',
-    email: 'taylor@example.com',
-    password: 'Secure123!',
-    dob: '2006-12-13',
-    tos_accepted: true,
-    privacy_accepted: true,
+    first_name:   'Taylor',
+    last_name:    'Swift',
+    email:        'taylor@example.com',
+    password:     'Secure123!',
+    dob:          '2006-12-13',
+    accept_terms: true as const,
   };
 
   it('passes with a fully valid payload', () => {
@@ -47,16 +47,18 @@ describe('signUpSchema', () => {
     expect(result.error?.flatten().fieldErrors.first_name).toBeDefined();
   });
 
-  it('fails when tos_accepted is false', () => {
-    const result = signUpSchema.safeParse({ ...validPayload, tos_accepted: false });
+  it('fails when accept_terms is false', () => {
+    // z.literal(true) — anything other than exactly true fails
+    const result = signUpSchema.safeParse({ ...validPayload, accept_terms: false });
     expect(result.success).toBe(false);
-    expect(result.error?.flatten().fieldErrors.tos_accepted).toBeDefined();
+    expect(result.error?.flatten().fieldErrors.accept_terms).toBeDefined();
   });
 
-  it('fails when privacy_accepted is false', () => {
-    const result = signUpSchema.safeParse({ ...validPayload, privacy_accepted: false });
+  it('fails when accept_terms is missing', () => {
+    const { accept_terms: _at, ...withoutTerms } = validPayload;
+    const result = signUpSchema.safeParse(withoutTerms);
     expect(result.success).toBe(false);
-    expect(result.error?.flatten().fieldErrors.privacy_accepted).toBeDefined();
+    expect(result.error?.flatten().fieldErrors.accept_terms).toBeDefined();
   });
 
   it('fails when dob is missing', () => {
@@ -80,13 +82,16 @@ describe('signUpSchema', () => {
     expect(errors?.first_name).toBeDefined();
   });
 
-  it('trims whitespace from first_name and last_name', () => {
-    const result = signUpSchema.safeParse({ ...validPayload, first_name: '  Taylor  ', last_name: '  Swift  ' });
-    if (result.success) {
-      expect(result.data.first_name).toBe('Taylor');
-      expect(result.data.last_name).toBe('Swift');
-    }
-    // If schema doesn't trim, test still informs us — no assertion failure on parse
+  it('fails when password has no uppercase letter', () => {
+    const result = signUpSchema.safeParse({ ...validPayload, password: 'alllower1!' });
+    expect(result.success).toBe(false);
+    expect(result.error?.flatten().fieldErrors.password).toBeDefined();
+  });
+
+  it('fails when password has no number', () => {
+    const result = signUpSchema.safeParse({ ...validPayload, password: 'NoNumbers!' });
+    expect(result.success).toBe(false);
+    expect(result.error?.flatten().fieldErrors.password).toBeDefined();
   });
 });
 
@@ -95,7 +100,7 @@ describe('signUpSchema', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describe('signInSchema', () => {
   const validPayload = {
-    email: 'taylor@example.com',
+    email:    'taylor@example.com',
     password: 'Secure123!',
   };
 

@@ -8,8 +8,12 @@
  *   AC-02 Expired link — resend CTA
  *   AC-03 Unverified user cannot access features (enforced by middleware)
  *   AC-04 Resend works correctly
+ *
+ * useSearchParams() must live inside a component wrapped with <Suspense> to
+ * satisfy Next.js 14 static generation. VerifyEmailScreenInner holds all
+ * search-param logic; the exported shell is the Suspense boundary.
  */
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Mail, RefreshCw, CheckCircle2 } from 'lucide-react';
@@ -19,7 +23,7 @@ import { Alert } from '@/components/ui/Alert';
 
 type ResendState = 'idle' | 'loading' | 'sent' | 'error';
 
-export function VerifyEmailScreen() {
+function VerifyEmailScreenInner() {
   const searchParams = useSearchParams();
   const email = searchParams.get('email') ?? '';
   const isExpired = searchParams.get('expired') === 'true';
@@ -48,7 +52,6 @@ export function VerifyEmailScreen() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
-      {/* Icon */}
       <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-500">
         <Mail className="h-8 w-8" aria-hidden="true" />
       </div>
@@ -68,7 +71,6 @@ export function VerifyEmailScreen() {
         )}
       </p>
 
-      {/* Expired link message — AC-02 */}
       {isExpired && (
         <Alert
           type="error"
@@ -77,7 +79,6 @@ export function VerifyEmailScreen() {
         />
       )}
 
-      {/* Resend feedback */}
       {resendState === 'sent' && (
         <div className="mt-5 flex items-center justify-center gap-2 text-sm text-success-500 font-medium">
           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
@@ -93,7 +94,6 @@ export function VerifyEmailScreen() {
         />
       )}
 
-      {/* Resend CTA */}
       {resendState !== 'sent' && email && (
         <Button
           variant="secondary"
@@ -111,5 +111,13 @@ export function VerifyEmailScreen() {
         Can&apos;t find the email? Check your spam folder.
       </p>
     </motion.div>
+  );
+}
+
+export function VerifyEmailScreen() {
+  return (
+    <Suspense fallback={null}>
+      <VerifyEmailScreenInner />
+    </Suspense>
   );
 }
