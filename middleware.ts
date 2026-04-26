@@ -1,20 +1,42 @@
 /**
- * Next.js middleware — session refresh + route protection.
+ * Next.js Middleware
+ * Runs on every request before page render.
  *
- * Protected routes: /dashboard, /practice, /frq, /onboarding
- * Public routes:    /signin, /signup, /verify-email, /forgot-password, /auth/callback
+ * Responsibilities:
+ *   1. Refresh Supabase session (keeps cookies fresh)
+ *   2. Protect authenticated routes — redirect to /signin if no session
+ *   3. Redirect authenticated users away from auth pages
  *
- * Uses @supabase/ssr to refresh the session token on every request.
- * This is required — without it, Server Components see stale sessions.
+ * Route structure:
+ *   Public:          /signin  /signup  /verify-email  /forgot-password  /auth/*  /legal/*
+ *   Onboarding:      /onboarding/[product]/*  (auth required, no onboarding check here)
+ *   Protected:       /[product]/dashboard  /[product]/*
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-const PROTECTED_PREFIXES = ['/dashboard', '/practice', '/frq', '/onboarding', '/profile'];
-const PUBLIC_PATHS = ['/signin', '/signup', '/verify-email', '/forgot-password', '/auth'];
+const PUBLIC_PATHS = [
+  '/signin',
+  '/signup',
+  '/verify-email',
+  '/forgot-password',
+  '/reset-password',
+  '/auth',
+  '/legal',
+  '/_next',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+}
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({
+  const { pathname } = request.nextUrl;
+
+  let response = NextResponse.next({
     request: { headers: request.headers },
   });
 
@@ -23,34 +45,39 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value);
-            response.cookies.set(name, value, options);
-          });
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({ request: { headers: request.headers } });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options });
+          response = NextResponse.next({ request: { headers: request.headers } });
+          response.cookies.set({ name, value: '', ...options });
         },
       },
     }
   );
 
-  // Refresh session — MUST be called before checking auth state
   const { data: { user } } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
-  const isProtected = PROTECTED_PREFIXES.some(p => path.startsWith(p));
-  const isPublic    = PUBLIC_PATHS.some(p => path.startsWith(p));
-
-  // Unauthenticated user hitting a protected route
-  if (isProtected && !user) {
-    const redirectUrl = new URL('/signin', request.url);
-    redirectUrl.searchParams.set('next', path);
-    return NextResponse.redirect(redirectUrl);
+  // Allow public paths through always
+  if (isPublicPath(pathname)) {
+    // Redirect signed-in users away from auth pages
+    if (user && (pathname === '/signin' || pathname === '/signup')) {
+      return NextResponse.redirect(new URL('/score-boost-ap/dashboard', request.url));
+    }
+    return response;
   }
 
-  // Authenticated user hitting auth pages — send to dashboard
-  if (isPublic && user && !path.startsWith('/auth')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // No session — redirect to sign in, preserving intended destination
+  if (!user) {
+    const url = new URL('/signin', request.url);
+    url.searchParams.set('next', pathname);
+    return NextResponse.redirect(url);
   }
 
   return response;
@@ -58,6 +85,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
   ],
 };
