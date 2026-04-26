@@ -24,7 +24,7 @@ function serviceClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body   = await request.json();
     const parsed = signUpSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -35,10 +35,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { first_name, last_name, email, password, dob } = parsed.data;
-    const product = (body.product as string | undefined) ?? DEFAULT_PRODUCT;
+    const product  = (body.product as string | undefined) ?? DEFAULT_PRODUCT;
     const supabase = serviceClient();
 
-    // 1. Create Supabase Auth user
+    // 1. Create Supabase Auth user (email_confirm: false — we send the link manually below)
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       if (
         authError.message.toLowerCase().includes('already') ||
         authError.message.toLowerCase().includes('duplicate') ||
-        authError.code === '23505'
+        (authError as any).code === '23505'
       ) {
         return NextResponse.json(
           { error: 'duplicate_email', message: 'An account with this email already exists. Sign in instead?' },
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Insert students row
     const { error: studentError } = await supabase.from('students').insert({
-      id: userId,
+      id:             userId,
       email,
       first_name,
       last_name,
@@ -89,9 +89,11 @@ export async function POST(request: NextRequest) {
       { student_id: userId, document_type: 'privacy_policy',   version: '1.0', ip_address: ip, user_agent: ua },
     ]);
 
-    // 4. Send verification email — redirect to product-scoped onboarding
+    // 4. Send verification email via magiclink — redirects to product-scoped onboarding after confirm
+    // Note: type:'signup' requires a password param in Supabase's GenerateLinkParams type.
+    // type:'magiclink' produces an equivalent email verification link without that constraint.
     await supabase.auth.admin.generateLink({
-      type: 'signup',
+      type:  'magiclink',
       email,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?product=${product}&next=/onboarding/${product}/age-gate`,
