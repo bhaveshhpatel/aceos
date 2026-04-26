@@ -12,6 +12,8 @@ jobs:
   test:
     name: Vitest — Unit Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -48,6 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: test          # Never deploy if tests fail
     environment: preview
+    permissions:
+      contents: read
+      pull-requests: write   # Required: post/update the preview URL comment
+      issues: write          # Required: github.rest.issues.createComment/updateComment
     outputs:
       preview_url: ${{ steps.deploy.outputs.preview_url }}
     steps:
@@ -103,8 +109,8 @@ jobs:
 
             // Find existing bot comment and update it, or create new one
             const comments = await github.rest.issues.listComments({
-              owner:       context.repo.owner,
-              repo:        context.repo.repo,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
               issue_number: context.issue.number,
             });
             const existing = comments.data.find(c =>
