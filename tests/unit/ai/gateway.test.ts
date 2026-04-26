@@ -10,7 +10,7 @@
  * Gherkin source: tests/gherkin/sprint-2/technical/TS2-02_litellm_gateway.feature
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // These imports WILL FAIL until implementation exists — RED state is correct
 import { callAI, AIGatewayError } from '@/lib/ai/gateway';
@@ -155,6 +155,14 @@ describe('callAI retry behaviour', () => {
 // Gherkin: Scenario — Every successful AI call is logged to ai_usage_log
 // ─────────────────────────────────────────────────────────────
 describe('callAI usage logging', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('calls logAIUsage after a successful response without blocking return', async () => {
     // logAIUsage is fire-and-forget — we spy via module mock
     const logSpy = vi.fn().mockResolvedValue(undefined);
@@ -170,8 +178,7 @@ describe('callAI usage logging', () => {
 
     // Response must be returned — logging is non-blocking
     expect(result.content).toBeDefined();
-    // logAIUsage should have been called (may be async)
-    // We check it was called at some point (not awaited by callAI)
+    // Flush all async timers so fire-and-forget logging resolves
     await vi.runAllTimersAsync();
     // logSpy may be called async — assert it was scheduled
     expect(logSpy).toHaveBeenCalledOnce();
