@@ -117,16 +117,18 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
   const data = await response.json();
   const latency = Date.now() - startTime;
 
-  // Fire-and-forget — must not block or throw
-  logAIUsage({
-    route: request.route,
-    model: routeConfig.model,
-    provider: routeConfig.provider,
-    prompt_tokens: data.usage?.prompt_tokens ?? 0,
-    completion_tokens: data.usage?.completion_tokens ?? 0,
-    latency_ms: latency,
-    metadata: request.metadata,
-  }).catch(console.error);
+  // Fire-and-forget — Promise.resolve() guards against mock/undefined return values
+  Promise.resolve(
+    logAIUsage({
+      route: request.route,
+      model: routeConfig.model,
+      provider: routeConfig.provider,
+      prompt_tokens: data.usage?.prompt_tokens ?? 0,
+      completion_tokens: data.usage?.completion_tokens ?? 0,
+      latency_ms: latency,
+      metadata: request.metadata,
+    })
+  ).catch(console.error);
 
   return {
     content: data.choices[0].message.content as string,
