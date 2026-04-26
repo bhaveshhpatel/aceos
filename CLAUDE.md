@@ -25,11 +25,35 @@ AceOS is a production-grade, FERPA-compliant academic performance platform for h
 
 4. **Prompts are code, not strings.** All prompt templates live in `lib/ai/prompts/`. They are versioned, tested, and loaded via `renderPrompt()`. No inline prompt strings in routes, components, or utilities.
 
-5. **Test-Forward is not optional.** Gherkin scenarios are written before implementation code. Unit tests before features. Integration tests before deployment. E2E tests before a sprint is marked done.
+5. **Test-Forward is not optional.** The order is: Gherkin `.feature` file → unit tests (RED) → implementation (GREEN) → integration tests → E2E tests → story Done. No step is skipped.
 
 6. **RLS on every Supabase table.** Every table has Row Level Security enabled with explicit policies. No table ships without RLS.
 
 7. **No secrets in code.** Ever. All secrets in environment variables. All env vars documented in `.env.example`.
+
+---
+
+## Test-Forward Workflow (The Exact Sequence)
+
+For every story — functional or technical — follow this exact sequence:
+
+```
+1. Read story acceptance criteria
+2. Write .feature file in tests/gherkin/{sprint}/{functional|technical}/
+3. Add automation mapping comment to feature file header
+4. Write unit tests → run → confirm RED (no implementation exists)
+5. Implement feature → unit tests go GREEN
+6. Write integration tests → GREEN
+7. Write E2E test (if Functional story) → GREEN
+8. Open PR → CI must pass
+9. Verify story DoD checklist → mark Done
+```
+
+**The non-negotiable step:** Tests must be RED before implementation. A test that was never RED proves nothing.
+
+Gherkin file location: `tests/gherkin/sprint-{N}/{functional|technical}/{STORY-ID}_{title}.feature`
+
+Full Gherkin rules, automation mapping, and scenario writing standards: `.context/TESTING_STANDARDS.md` Section 3.
 
 ---
 
@@ -115,7 +139,15 @@ aceos/
 │   ├── unit/                  # Vitest unit tests
 │   ├── integration/           # API integration tests
 │   ├── e2e/                   # Playwright E2E tests
-│   └── gherkin/               # .feature files (BDD scenarios)
+│   ├── gherkin/               # ⭐ .feature files — written BEFORE implementation
+│   │   ├── sprint-1/
+│   │   │   ├── functional/    # S1-F-XX feature files
+│   │   │   └── technical/     # T1-X feature files
+│   │   └── sprint-2/
+│   │       ├── functional/    # S2-F-XX feature files
+│   │       └── technical/     # TS2-XX feature files
+│   ├── mocks/                 # Shared test mocks (ai-gateway, modal-sandbox)
+│   └── factories/             # Test data factories
 ├── docs/                      # Product + technical documentation
 ├── model_map.json             # ⭐ AI model routing config — never hardcode models
 ├── .env.example               # All required env vars (empty values)
@@ -137,6 +169,12 @@ aceos/
 - `docs/phase-1/epic-1/Sprint_2_Functional_Stories.md`
 - `docs/phase-1/epic-1/Sprint_2_Technical_Stories.md`
 
+### Gherkin feature files (source of truth for test automation):
+- `tests/gherkin/sprint-1/functional/` — all S1-F-XX stories
+- `tests/gherkin/sprint-1/technical/` — all T1-X stories
+- `tests/gherkin/sprint-2/functional/` — all S2-F-XX stories
+- `tests/gherkin/sprint-2/technical/` — all TS2-XX stories
+
 ---
 
 ## How to Use This Repo as an AI
@@ -144,22 +182,25 @@ aceos/
 ### When asked to implement a feature:
 1. Read the relevant sprint story for acceptance criteria
 2. Read the relevant standards files for the feature type
-3. Write Gherkin scenarios first (in `tests/gherkin/`)
-4. Write unit tests against the Gherkin scenarios
-5. Implement the feature to make tests pass
-6. Verify against the story's Definition of Done checklist
+3. **Write the `.feature` file first** (in `tests/gherkin/`)
+4. Write unit tests against the Gherkin scenarios → confirm RED
+5. Implement the feature → tests go GREEN
+6. Write integration + E2E tests
+7. Verify against the story's Definition of Done checklist
 
 ### When asked to review code:
 1. Check against all applicable standards files
 2. Flag any violation of a Non-Negotiable
-3. Check test coverage for the changed paths
-4. Verify no secrets, no inline prompts, no direct AI SDK imports
+3. Verify `.feature` file exists for the story being implemented
+4. Check test coverage for the changed paths
+5. Verify no secrets, no inline prompts, no direct AI SDK imports
 
 ### When asked to design a new feature:
 1. Start from `ARCHITECTURE_STANDARDS.md` — does it fit the PID model?
 2. Check `PLUGABILITY_STANDARDS.md` — are all external dependencies swappable?
 3. Write the functional story first (PM hat), then the technical story (lead engineer hat)
-4. Get Gherkin scenarios approved before implementation begins
+4. Write Gherkin scenarios — if you can't write clean scenarios, the story isn't ready
+5. Get Gherkin scenarios reviewed before implementation begins
 
 ### When in doubt about any standard:
 The standards files are authoritative. This CLAUDE.md is the map. The standards files are the law.
@@ -192,6 +233,9 @@ return NextResponse.json({ error: err.message })  // exposes internals
 
 // ❌ LLM validating STEM answer
 callAI({ route: 'frq_grading', messages: [{ content: `Is ${answer} correct?` }] })
+
+// ❌ Implementation before .feature file
+// Writing code before the Gherkin scenario is written and reviewed
 ```
 
 ---

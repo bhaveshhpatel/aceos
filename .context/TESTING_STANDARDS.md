@@ -10,10 +10,12 @@
 
 ### Required Order of Operations (no exceptions)
 1. **Read the story** (functional or technical)
-2. **Write Gherkin scenarios** (Given/When/Then) — these are the acceptance criteria
-3. **Write failing automated tests** derived from those Gherkin scenarios
-4. **Write the implementation** until all tests pass
-5. **Refactor** — tests stay green throughout
+2. **Write Gherkin `.feature` file** — one file per story, in `tests/gherkin/`
+3. **Classify each scenario** to its test layer (see Section 2 — Automation Mapping)
+4. **Write failing automated tests** derived from those Gherkin scenarios
+5. **Write the implementation** until all tests pass (RED → GREEN)
+6. **Refactor** — tests stay green throughout
+7. **Verify story DoD checklist** — all items checked before story is marked Done
 
 This is not optional. A PR that introduces code without accompanying tests for new behavior is rejected.
 
@@ -24,7 +26,155 @@ This is not optional. A PR that introduces code without accompanying tests for n
 
 ---
 
-## 2. Test Types & Ownership
+## 2. The Three-Layer Test Pyramid
+
+Every story gets three layers of automation. They are written and executed in this order:
+
+```
+         ┌─────────────────────────────┐
+         │         E2E / Playwright     │  ← Full user journeys, browser-driven
+         │  Slowest · Highest confidence│    Written last, gate before sprint Done
+         └─────────────────────────────┘
+      ┌─────────────────────────────────────┐
+      │     Integration Tests (Vitest)       │  ← API routes + DB via real test schema
+      │  Medium speed · Medium confidence    │    Written after unit tests pass
+      └─────────────────────────────────────┘
+   ┌─────────────────────────────────────────────┐
+   │          Unit Tests (Vitest)                 │  ← Pure logic, mocked boundaries
+   │  Fastest · Tests one thing at a time         │    Written FIRST, before implementation
+   └─────────────────────────────────────────────┘
+```
+
+### Automation Mapping — Which Layer Per Story Type
+
+| Story Type | Primary Layer | Secondary Layer | E2E |
+|---|---|---|---|
+| Functional (FS) — UI flows | Playwright E2E | Integration (API contract) | Full flow |
+| Technical (TS) — API / infra | Vitest unit + Integration | — | Smoke only |
+| DB / Schema (TS migration) | Integration (real Supabase test) | — | None |
+| AI pipeline (gateway, prompts) | Vitest unit (mocked gateway) | Integration (real fixture) | None |
+| STEM validation (Modal sandbox) | Vitest unit + Integration | — | Smoke only |
+| Auth flows | Integration (Supabase test) | Playwright E2E | Full flow |
+| Error handling / boundaries | Vitest unit | Playwright E2E (negative path) | Negative scenario |
+
+---
+
+## 3. Gherkin Standards
+
+### The Prime Directive for Gherkin
+**Gherkin describes observable behavior at the system boundary — not implementation details, not UI mechanics.**
+If a scenario can only be validated by reading source code, it is written at the wrong level.
+
+### Scenario Quality Rules
+- **Given** = pre-conditions — system state, user state, data state. What is true before the action.
+- **When** = the single action under test. One When per scenario. No "and then".
+- **Then** = observable outcomes. What the user sees, what the DB contains, what the API returns. Never "X function was called."
+- One scenario = one behavior. Never test two distinct outcomes in one scenario.
+- No implementation details. Scenarios describe WHAT, not HOW.
+- Every scenario must be directly automatable — if you cannot point to a specific assertion for every Then, rewrite it.
+
+```gherkin
+# ✅ CORRECT — observable behavior at system boundary
+Scenario: Minor student is gated at parental consent before accessing dashboard
+  Given a student signs up with a date of birth 15 years ago
+  And they provide parent email "parent@example.com"
+  When signup completes
+  Then they are shown the parental consent waiting screen
+  And the dashboard is not accessible
+  And a consent email is sent to "parent@example.com" within 30 seconds
+
+# ❌ WRONG — tests implementation, not behavior
+Scenario: ParentalConsentService.send() is called with student_id
+  Given the student object has age: 15
+  When signupHandler() processes the POST body
+  Then parentalConsentService.send(student.id) is called once
+```
+
+### Gherkin File Structure
+```
+tests/gherkin/
+├── sprint-1/
+│   ├── functional/
+│   │   ├── S1-F-01_email_signup.feature
+│   │   ├── S1-F-02_google_oauth.feature
+│   │   ├── S1-F-03_age_gate_consent.feature
+│   │   ├── S1-F-04_email_verification.feature
+│   │   ├── S1-F-05_subject_selection.feature
+│   │   ├── S1-F-06_dashboard_shell.feature
+│   │   ├── S1-F-07_session_persistence.feature
+│   │   ├── S1-F-08_tos_acceptance.feature
+│   │   ├── S1-F-09_parental_consent_email.feature
+│   │   └── S1-F-10_password_recovery.feature
+│   └── technical/
+│       ├── T1-1_supabase_schema_rls.feature
+│       ├── T1-2_vercel_ci_pipeline.feature
+│       ├── T1-3_litellm_gateway.feature
+│       ├── T1-4_auth_system.feature
+│       ├── T1-5_subject_selection_backend.feature
+│       ├── T1-6_legal_pages.feature
+│       ├── T1-7_profile_trigger.feature
+│       └── T1-8_error_boundaries.feature
+└── sprint-2/
+    ├── functional/
+    │   └── (Sprint 2 functional feature files)
+    └── technical/
+        ├── TS2-01_modal_sandbox.feature
+        ├── TS2-02_litellm_gateway_v2.feature
+        ├── TS2-03_prompt_template_system.feature
+        ├── TS2-04_ai_error_handling.feature
+        └── TS2-05_qa_pipeline.feature
+```
+
+### Gherkin File Header (required on every .feature file)
+```gherkin
+# Story: S1-F-03 — Age Gate & Parental Consent Flow
+# Sprint: 1 | Epic: 1 | Phase: 1
+# Test Layer: E2E (primary) + Integration (secondary)
+# Story Source: docs/phase-1/epic-1/Sprint_1_Functional_Stories.md
+# Last Updated: YYYY-MM-DD
+
+Feature: Age Gate & Parental Consent Flow
+  As a student under 18
+  I want my signup to trigger a parental consent gate
+  So that AceOS is FERPA-compliant before storing any of my data
+```
+
+### Gherkin → Test Mapping Table (required per feature file, at top as a comment)
+```gherkin
+# Automation Map:
+# Scenario 1 → tests/e2e/auth/consent.spec.ts → ConsentPage.minorRedirectedToConsent()
+# Scenario 2 → tests/integration/api/auth.test.ts → 'POST /api/auth/signup minor flow'
+# Scenario 3 → tests/unit/consent.test.ts → 'sendConsentEmail validates parent email'
+```
+
+---
+
+## 4. RED → GREEN → REFACTOR Workflow (Per Story)
+
+This is the non-negotiable execution sequence for every story:
+
+```
+Step 1: Feature file written + reviewed (PR comment or sync)
+         ↓
+Step 2: Unit tests written → run → ALL RED
+         (Implementation does not exist. Tests prove they test something.)
+         ↓
+Step 3: Implementation written → unit tests go GREEN
+         ↓
+Step 4: Integration tests written → GREEN
+         ↓
+Step 5: E2E tests written (if applicable) → GREEN
+         ↓
+Step 6: PR opened → CI runs full suite → must pass
+         ↓
+Step 7: Story DoD checklist verified → story marked Done
+```
+
+**The discipline trap:** Step 2 (writing tests RED before any implementation) gets skipped because it feels wasteful. Do not skip it. A test that was never RED has never proven it tests anything. It may be permanently green because it never actually exercises the code.
+
+---
+
+## 5. Test Types & Ownership
 
 | Type | Tool | What It Tests | Speed | Location |
 |---|---|---|---|---|
@@ -47,51 +197,7 @@ These are enforced in CI. A build that drops below these thresholds fails.
 
 ---
 
-## 3. Gherkin Standards
-
-Every story must produce Gherkin scenarios before implementation begins. These scenarios are the single source of truth for acceptance.
-
-### Scenario Writing Rules
-- **Given** = pre-conditions (system state, user state, data state)
-- **When** = the single action being tested
-- **Then** = observable outcomes (what the user sees, what the DB contains, what the API returns)
-- One scenario = one behavior. Do not test two things in one scenario.
-- **No implementation details in Gherkin.** Scenarios describe WHAT, not HOW.
-
-```gherkin
-# ✅ CORRECT — describes behavior
-Scenario: Student under 18 is redirected to parental consent
-  Given a student enters age 16 during signup
-  When they complete the email verification step
-  Then a parental consent email is sent to the provided parent email
-  And the student sees a "Waiting for parent approval" screen
-  And the student cannot access the dashboard until consent is confirmed
-
-# ❌ WRONG — describes implementation
-Scenario: ParentalConsentService.send() is called with student_id
-  Given the student object has age: 16
-  When signupHandler() processes the POST body
-  Then parentalConsentService.send(student.id) is called once
-```
-
-### Gherkin File Location
-```
-tests/
-├── features/
-│   ├── auth/
-│   │   ├── student_signup.feature
-│   │   └── parental_consent.feature
-│   ├── diagnostic/
-│   │   ├── text_diagnostic.feature
-│   │   └── stem_diagnostic.feature
-│   └── frq/
-│       ├── humanities_grader.feature
-│       └── stem_grader.feature
-```
-
----
-
-## 4. Unit Test Standards
+## 6. Unit Test Standards
 
 ### Tool: Vitest
 ```typescript
@@ -130,10 +236,8 @@ describe('renderPrompt', () => {
         rubric: 'Thesis (1pt)...',
         student_response: 'The Civil War was caused by...'
       };
-
       // Act
       const result = renderPrompt('frq_humanities_grader', variables);
-
       // Assert
       expect(result.user).not.toMatch(/\{\{\w+\}\}/);
       expect(result.system).not.toBe('');
@@ -142,10 +246,8 @@ describe('renderPrompt', () => {
 
   describe('when a required variable is missing', () => {
     it('throws an error naming the missing variable', () => {
-      const incomplete = { subject: 'AP US History' }; // missing 4 vars
-
-      expect(() => renderPrompt('frq_humanities_grader', incomplete))
-        .toThrow(/rubric/);
+      const incomplete = { subject: 'AP US History' };
+      expect(() => renderPrompt('frq_humanities_grader', incomplete)).toThrow(/rubric/);
     });
   });
 });
@@ -167,65 +269,18 @@ describe('renderPrompt', () => {
 
 ---
 
-## 5. Integration Test Standards
+## 7. Integration Test Standards
 
 ### Supabase Test Schema
-All integration tests run against a **dedicated test schema** (`test_<branch_name>`), never production.
+All integration tests run against a **dedicated test schema**, never production.
 
 ```typescript
 // tests/setup/supabase-test-client.ts
 import { createClient } from '@supabase/supabase-js';
-
 export const testSupabase = createClient(
   process.env.SUPABASE_TEST_URL!,
-  process.env.SUPABASE_TEST_SERVICE_KEY!  // service key for test setup only
+  process.env.SUPABASE_TEST_SERVICE_KEY!
 );
-
-// Before each test suite: seed test data
-// After each test suite: truncate test tables
-```
-
-### API Route Integration Tests
-```typescript
-// tests/integration/api/validate-stem.test.ts
-describe('POST /api/validate-stem', () => {
-  beforeEach(async () => {
-    // Create authenticated test user
-    testUser = await createTestUser({ email: 'test@aceos.io' });
-  });
-
-  afterEach(async () => {
-    await cleanupTestUser(testUser.id);
-  });
-
-  it('returns correct: true for matching numerical answer', async () => {
-    const response = await fetch('/api/validate-stem', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cookie': testUser.sessionCookie
-      },
-      body: JSON.stringify({
-        subject_type: 'AP Calculus AB',
-        student_answer: '12',
-        correct_answer: '12',
-        answer_type: 'numerical'
-      })
-    });
-
-    const data = await response.json();
-    expect(response.status).toBe(200);
-    expect(data.correct).toBe(true);
-  });
-
-  it('returns 401 for unauthenticated request', async () => {
-    const response = await fetch('/api/validate-stem', {
-      method: 'POST',
-      body: JSON.stringify({ student_answer: '12' })
-    });
-    expect(response.status).toBe(401);
-  });
-});
 ```
 
 ### AI Gateway Mocking
@@ -233,42 +288,33 @@ describe('POST /api/validate-stem', () => {
 
 ```typescript
 // tests/mocks/ai-gateway.ts
-import { vi } from 'vitest';
-import * as gateway from '@/lib/ai/gateway';
-
 export function mockCallAI(response: Partial<AIResponse>) {
   return vi.spyOn(gateway, 'callAI').mockResolvedValue({
     content: response.content ?? '',
     model_used: 'gpt-4o',
-    provider: 'openai',
     usage: { prompt_tokens: 100, completion_tokens: 200, total_tokens: 300 },
     latency_ms: 450,
     ...response
   });
 }
-
-// Usage in test
-const spy = mockCallAI({ content: JSON.stringify(validFRQResponse) });
-// ... test code ...
-expect(spy).toHaveBeenCalledWith(expect.objectContaining({ route: 'frq_grading' }));
 ```
 
-### Modal Sandbox Mocking
-```typescript
-// tests/mocks/modal-sandbox.ts
-export function mockModalSandbox(result: { correct: boolean | null; error?: string }) {
-  return vi.spyOn(global, 'fetch').mockImplementation(async (url) => {
-    if (String(url).includes('modal.run')) {
-      return new Response(JSON.stringify(result), { status: 200 });
-    }
-    return originalFetch(url);
-  });
-}
-```
+### AI-Specific Test Strategy
+The AI pipeline requires a distinct approach because LLM output is non-deterministic:
+
+| Test Goal | Approach | Note |
+|---|---|---|
+| Prompt rendering | Unit test renderPrompt() with known variables | Fast, deterministic |
+| Schema validation | Unit test Zod parsers with valid + invalid fixtures | Tests shape, not content |
+| Error handling | Unit test with mocked callAI() throwing AIError variants | Mocked boundary |
+| Gateway routing | Unit test model_map.json parsing | Deterministic config |
+| Real AI quality gate | 50-question QA harness (scripts/qa/) | Manual / scheduled only — NOT on every PR |
+
+**The 50-question QA gate is NOT a CI gate.** It runs manually or on a weekly schedule. It is too slow and too expensive for every PR. It is a quality signal, not a merge blocker.
 
 ---
 
-## 6. E2E Test Standards
+## 8. E2E Test Standards
 
 ### Tool: Playwright
 ```typescript
@@ -277,7 +323,6 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
-  reporter: [['html'], ['github']],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
     trace: 'on-first-retry',
@@ -293,70 +338,49 @@ export default defineConfig({
 
 ### Mandatory E2E Flows (must pass before every deploy)
 
-| Flow | Scenarios | Priority |
-|---|---|---|
-| Student signup (18+) | Email signup → verify → dashboard | P0 |
-| Student signup (<18) | Email signup → parental consent gate → blocked dashboard | P0 |
-| Google OAuth signup | OAuth flow → subject selection → dashboard | P0 |
-| Diagnostic completion | Select subject → complete 50q → see heatmap + score | P0 |
-| FRQ submission + grading | Submit essay → receive rubric heatmap within 60s | P0 |
-| STEM answer submission | Submit typed answer → see validation result | P1 |
-| Error recovery | AI returns error → student sees retry UI → retry succeeds | P1 |
-| Parental consent flow | Parent receives email → clicks confirm → student unblocked | P1 |
+| Flow | Priority |
+|---|---|
+| Email signup (18+) → verify → dashboard | P0 |
+| Email signup (<18) → parental consent gate → blocked dashboard | P0 |
+| Google OAuth signup → subject selection → dashboard | P0 |
+| Diagnostic completion → heatmap + score | P0 |
+| FRQ submission + grading (streamed) | P0 |
+| STEM answer submission + validation result | P1 |
+| AI error → retry UI → retry succeeds | P1 |
+| Parental consent full flow (approve + deny) | P1 |
 
 ### Page Object Pattern (required for all E2E tests)
 ```typescript
 // tests/e2e/pages/signup-page.ts
 export class SignupPage {
   constructor(private page: Page) {}
-
   async goto() { await this.page.goto('/auth/signup'); }
-
-  async fillEmail(email: string) {
-    await this.page.getByLabel('Email address').fill(email);
-  }
-
-  async fillAge(age: number) {
-    await this.page.getByLabel('Your age').fill(String(age));
-  }
-
-  async submit() {
-    await this.page.getByRole('button', { name: 'Create account' }).click();
-  }
-
-  async waitForParentalConsentScreen() {
-    await this.page.waitForSelector('[data-testid="parental-consent-pending"]');
-  }
+  async fillEmail(email: string) { await this.page.getByLabel('Email address').fill(email); }
+  async submit() { await this.page.getByRole('button', { name: 'Create account' }).click(); }
 }
 ```
 
-### Data Test IDs
-Every interactive and key display element must have `data-testid` attributes:
+### Data Test IDs (required on all interactive + key display elements)
 ```tsx
-<button data-testid="submit-frq" onClick={handleSubmit}>Submit Essay</button>
-<div data-testid="rubric-heatmap" aria-label="Rubric score breakdown">{...}</div>
-<div data-testid="parental-consent-pending">{...}</div>
+<button data-testid="submit-frq">Submit Essay</button>
+<div data-testid="rubric-heatmap">...</div>
+<div data-testid="parental-consent-pending">...</div>
 ```
-
-Never use CSS selectors or XPaths in E2E tests. Always use `data-testid` or ARIA roles.
+Never use CSS selectors or XPaths in E2E tests. Always `data-testid` or ARIA roles.
 
 ---
 
-## 7. Accessibility Testing
+## 9. Accessibility Testing
 
 ### Standard: WCAG 2.1 AA
-
-Every key user flow must pass axe-core automated accessibility scan.
 
 ```typescript
 // tests/e2e/accessibility/signup.a11y.test.ts
 import { checkA11y } from 'axe-playwright';
-
 test('signup page has no accessibility violations', async ({ page }) => {
   await page.goto('/auth/signup');
   await checkA11y(page, undefined, {
-    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] },
-    detailedReport: true
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] }
   });
 });
 ```
@@ -365,79 +389,74 @@ test('signup page has no accessibility violations', async ({ page }) => {
 - [ ] All interactive elements reachable by keyboard
 - [ ] Focus order is logical
 - [ ] All images have `alt` text
-- [ ] Color is not the only means of conveying information (error states use icons + text)
+- [ ] Color is not the only means of conveying information
 - [ ] AI error states use `role="alert"` and `aria-live="assertive"`
 - [ ] Loading states use `aria-busy="true"`
 - [ ] Forms have proper `<label>` associations
 
 ---
 
-## 8. CI Test Execution Order
+## 10. CI Test Execution Order
 
-```yaml
-# .github/workflows/ci.yml — test stage order
-jobs:
-  test:
-    steps:
-      - name: Type check        # tsc --noEmit — fails fast on type errors
-      - name: Lint              # ESLint — code quality gate
-      - name: Unit tests        # vitest run — <2 minutes
-      - name: Integration tests # vitest run --config vitest.integration.config.ts — <5 minutes
-      - name: Coverage check    # fails if below thresholds
-      - name: Build             # next build — catches SSR issues
-      - name: E2E tests         # playwright test — runs against built app — <10 minutes
+```
+Type check → Lint → Unit tests → Integration tests → Coverage check → Build → E2E tests
 ```
 
-**Total CI target: < 18 minutes.** If it exceeds this, tests are parallelized further.
+**Total CI target: < 18 minutes.**
 
 ### Test Environment Variables
 ```bash
 # .env.test — committed to repo (no secrets)
 NODE_ENV=test
-SUPABASE_URL=http://localhost:54321           # local Supabase via `supabase start`
-SUPABASE_ANON_KEY=<local-anon-key>           # from `supabase status`
-SUPABASE_SERVICE_KEY=<local-service-key>     # for test setup/teardown only
+SUPABASE_URL=http://localhost:54321
+SUPABASE_ANON_KEY=<local-anon-key>
+SUPABASE_SERVICE_KEY=<local-service-key>
 E2E_BASE_URL=http://localhost:3000
-OPENAI_API_KEY=test-mock-key                 # mocked in all tests
+OPENAI_API_KEY=test-mock-key
 GROQ_API_KEY=test-mock-key
-MODAL_SANDBOX_URL=http://localhost:3001/mock  # local mock server
+MODAL_SANDBOX_URL=http://localhost:3001/mock
 ```
 
 ---
 
-## 9. Test Data Management
-
-### Fixtures (static)
-- Stored in `tests/fixtures/`
-- Used for known-good AI responses, diagnostic questions, rubric templates
-- Never contain real student data
+## 11. Test Data Management
 
 ### Factories (dynamic)
 ```typescript
 // tests/factories/student.factory.ts
-export async function createTestStudent(overrides: Partial<Student> = {}): Promise<TestStudent> {
-  const defaults: Omit<Student, 'id' | 'created_at'> = {
+export async function createTestStudent(overrides = {}) {
+  const defaults = {
     email: `test+${Date.now()}@aceos.io`,
     age: 17,
     ap_subjects: ['AP US History'],
     parental_consent_confirmed: false,
     ...overrides
   };
-  // insert into test schema, return with cleanup function
   const { data } = await testSupabase.from('students').insert(defaults).select().single();
-  return {
-    ...data,
-    cleanup: () => testSupabase.from('students').delete().eq('id', data.id)
-  };
+  return { ...data, cleanup: () => testSupabase.from('students').delete().eq('id', data.id) };
 }
 ```
 
 ### Database Isolation
-- Each integration test suite runs in a transaction that is rolled back after the suite.
-- Never rely on test ordering. Every test must be independently runnable.
-- Never share state between tests via module-level variables.
+- Each integration test suite runs in a transaction rolled back after the suite
+- Never rely on test ordering — every test must be independently runnable
+- Never share state between tests via module-level variables
 
 ---
 
-*AceOS Testing Standards | Version 1.0 | April 2026*
+## 12. Story Done Definition (Test Gates)
+
+A story is NOT done until:
+- [ ] `.feature` file exists in `tests/gherkin/` matching every acceptance criterion
+- [ ] Automation mapping comment in feature file matches actual test file locations
+- [ ] All scenarios have corresponding automated tests (unit / integration / E2E as mapped)
+- [ ] All tests are GREEN in CI
+- [ ] Coverage thresholds pass for affected paths
+- [ ] E2E Playwright test covers the full user journey (for Functional stories)
+- [ ] `data-testid` attributes on all new interactive elements
+- [ ] Accessibility check passes on new pages
+
+---
+
+*AceOS Testing Standards | Version 2.0 | April 2026*
 *Owned by: Lead Engineer | Review cycle: per major phase*
