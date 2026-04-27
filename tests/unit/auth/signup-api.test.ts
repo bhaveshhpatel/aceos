@@ -3,40 +3,50 @@
  *
  * Gherkin source: tests/gherkin/sprint-1/functional/S1-F-01_email_signup.feature
  *
- * Strategy: mock @supabase/supabase-js createClient to intercept
- * auth.admin and from().insert() calls in isolation.
+ * Strategy: mock @supabase/supabase-js and resend at module level so
+ * neither constructor executes during test collection.
+ *
+ * Two-log architecture (T1.1 / T1.4):
+ *   consent_log      — legal document acceptance only
+ *                      columns: document_type, version, accepted_at, ip_address, user_agent
+ *   auth_event_log   — auth lifecycle events only
+ *                      columns: event_type, actor_email, ip_address, user_agent, metadata
  *
  * Error contract (T1.8 — SCREAMING_SNAKE_CASE):
  *   400 VALIDATION_ERROR      — Zod validation failed
  *   409 EMAIL_ALREADY_EXISTS  — duplicate email
  *   500 SIGNUP_FAILED         — students insert failed (rollback triggered)
- *
- * consent_log schema (T1.1):
- *   event_type        — 'tos_accepted' | 'privacy_policy_accepted' | 'age_verified_adult' | ...
- *   document_version  — '1.0' for tos/privacy, null for age_verified_adult
- *   actor_email       — student email at signup time
- *
- * redirectTo contract (S1-F-01 AC-01 / S1-F-04):
- *   generateLink must point to /auth/callback — a neutral handler that reads
- *   account_status from the DB and routes accordingly.
- *   Product context must NOT be embedded in this URL (separation of concerns —
- *   see route.ts step 5 comment for full rationale).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// ── Mock Resend BEFORE importing the route ────────────────────────────────────
+// new Resend() throws if RESEND_API_KEY is absent. Mock the entire module so
+// the constructor never runs during test collection.
+const mockResendSend = vi.fn().mockResolvedValue({ error: null });
+vi.mock('resend', () => ({
+  Resend: vi.fn().mockImplementation(() => ({
+    emails: { send: mockResendSend },
+  })),
+}));
+
 // ── Granular mocks per table ──────────────────────────────────────────────────
-const mockStudentsInsert = vi.fn().mockResolvedValue({ error: null });
-const mockConsentInsert  = vi.fn().mockResolvedValue({ error: null });
-const mockDeleteUser     = vi.fn().mockResolvedValue({});
-const mockCreateUser     = vi.fn();
-const mockGenerateLink   = vi.fn().mockResolvedValue({ data: {}, error: null });
+const mockStudentsInsert    = vi.fn().mockResolvedValue({ error: null });
+const mockConsentInsert     = vi.fn().mockResolvedValue({ error: null });
+const mockAuthEventInsert   = vi.fn().mockResolvedValue({ error: null });
+const mockDeleteUser        = vi.fn().mockResolvedValue({});
+const mockCreateUser        = vi.fn();
+const mockGenerateLink      = vi.fn();
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
-    from: vi.fn((table: string) => ({
-      insert: table === 'students' ? mockStudentsInsert : mockConsentInsert,
-    })),
+    from: vi.fn((table: string) => {
+      if (table === 'students')       return { insert: mockStudentsInsert };
+      if (table === 'consent_log')    return { insert: mockConsentInsert };
+      if (table === 'auth_event_log') return { insert: mockAuthEventInsert };
+      // Fallback — should never be hit; surface unknown tables clearly
+      return { insert: vi.fn().mockRejectedValue(new Error(`Unexpected table: ${table}`)) };
+    }),
     auth: {
       admin: {
         createUser:   mockCreateUser,
@@ -57,24 +67,50 @@ function makeRequest(body: object) {
   }) as any;
 }
 
+// Default valid body — dob makes user 15 years old (minor)
 const validBody = {
   first_name:   'Taylor',
   last_name:    'Swift',
   email:        'taylor@test.com',
   password:     'Secure123!',
-  dob:          '2006-12-13',
+  dob:          '2010-12-13',
   accept_terms: true,
 };
+
+// Adult dob — 20 years ago from test runtime
+function adultDob() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 20);
+  return d.toISOString().split('T')[0];
+}
+
+// Minor dob — 15 years ago from test runtime
+function minorDob() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 15);
+  return d.toISOString().split('T')[0];
+}
 
 describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default happy-path createUser response
     mockCreateUser.mockResolvedValue({
-      data: { user: { id: 'mock-user-id', email: 'taylor@test.com', user_metadata: {} } },
+      data:  { user: { id: 'mock-user-id', email: 'taylor@test.com', user_metadata: {} } },
       error: null,
     });
+
+    // generateLink must return properties.action_link or the route hits rollback
+    mockGenerateLink.mockResolvedValue({
+      data:  { properties: { action_link: 'https://supabase.test/verify?token=abc' } },
+      error: null,
+    });
+
     mockStudentsInsert.mockResolvedValue({ error: null });
     mockConsentInsert.mockResolvedValue({ error: null });
+    mockAuthEventInsert.mockResolvedValue({ error: null });
+    mockResendSend.mockResolvedValue({ error: null });
   });
 
   // ── Happy path ─────────────────────────────────────────────────────────────
@@ -85,20 +121,25 @@ describe('POST /api/auth/signup', () => {
     expect(body.success).toBe(true);
   });
 
-  // AC-01 / S1-F-04 redirectTo contract:
-  // Must point to /auth/callback — neutral handler, no product slug.
-  it('calls generateLink with type:magiclink and redirectTo /auth/callback (no product slug)', async () => {
+  // ── generateLink contract (S1-F-04) ────────────────────────────────────────
+  // type must be 'signup' (not 'magiclink') — 'signup' generates an email
+  // verification link; 'magiclink' generates a passwordless sign-in link
+  // and does NOT verify the email address.
+  it('calls generateLink with type:signup and redirectTo /auth/callback', async () => {
     await POST(makeRequest(validBody));
     expect(mockGenerateLink).toHaveBeenCalledWith(
       expect.objectContaining({
-        type:  'magiclink',
+        type:  'signup',
         email: 'taylor@test.com',
         options: expect.objectContaining({
           redirectTo: expect.stringContaining('/auth/callback'),
         }),
       })
     );
-    // Explicitly assert no product slug is embedded in the redirect URL
+  });
+
+  it('redirectTo URL contains no product slug or onboarding path', async () => {
+    await POST(makeRequest(validBody));
     const callArgs = JSON.stringify(mockGenerateLink.mock.calls);
     expect(callArgs).not.toContain('score-boost-ap');
     expect(callArgs).not.toContain('age-gate');
@@ -112,51 +153,76 @@ describe('POST /api/auth/signup', () => {
     expect(callArgs).not.toContain('age-gate');
   });
 
+  // ── account_status ─────────────────────────────────────────────────────────
   it('sets account_status to pending_age_check for underage student', async () => {
-    const today      = new Date();
-    const underageDob = new Date(today.getFullYear() - 15, today.getMonth(), today.getDate())
-      .toISOString().split('T')[0];
-    await POST(makeRequest({ ...validBody, dob: underageDob }));
+    await POST(makeRequest({ ...validBody, dob: minorDob() }));
     expect(mockStudentsInsert).toHaveBeenCalledWith(
       expect.objectContaining({ account_status: 'pending_age_check' })
     );
   });
 
   it('sets account_status to active for 18+ student', async () => {
-    const today    = new Date();
-    const adultDob = new Date(today.getFullYear() - 20, today.getMonth(), today.getDate())
-      .toISOString().split('T')[0];
-    await POST(makeRequest({ ...validBody, dob: adultDob }));
+    await POST(makeRequest({ ...validBody, dob: adultDob() }));
     expect(mockStudentsInsert).toHaveBeenCalledWith(
       expect.objectContaining({ account_status: 'active' })
     );
   });
 
-  // ── consent_log shape (T1.1 schema — event_type + document_version) ────────
-  it('inserts consent_log rows for ToS + Privacy Policy with correct event_type', async () => {
+  // ── consent_log shape (T1.1 two-log schema) ────────────────────────────────
+  // consent_log = legal document acceptance ONLY.
+  // Columns: document_type (enum), version, accepted_at, ip_address, user_agent.
+  // NO event_type, document_version, or actor_email on this table.
+  it('writes ToS + Privacy Policy rows to consent_log with correct document_type and version', async () => {
     await POST(makeRequest(validBody));
     expect(mockConsentInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ event_type: 'tos_accepted',            document_version: '1.0' }),
-        expect.objectContaining({ event_type: 'privacy_policy_accepted', document_version: '1.0' }),
+        expect.objectContaining({ document_type: 'terms_of_service',  version: '1.0' }),
+        expect.objectContaining({ document_type: 'privacy_policy',    version: '1.0' }),
       ])
     );
   });
 
-  it('inserts age_verified_adult consent_log row for adult signup', async () => {
-    const adultDob = new Date(new Date().getFullYear() - 20, 0, 1).toISOString().split('T')[0];
-    await POST(makeRequest({ ...validBody, dob: adultDob }));
-    expect(mockConsentInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ event_type: 'age_verified_adult', document_version: null })
+  it('consent_log rows include accepted_at timestamp', async () => {
+    await POST(makeRequest(validBody));
+    const [insertArg] = mockConsentInsert.mock.calls[0];
+    const rows = Array.isArray(insertArg) ? insertArg : [insertArg];
+    rows.forEach((row: any) => {
+      expect(row.accepted_at).toBeDefined();
+      expect(typeof row.accepted_at).toBe('string');
+    });
+  });
+
+  it('consent_log rows do NOT contain stale columns (event_type, document_version, actor_email)', async () => {
+    await POST(makeRequest(validBody));
+    const [insertArg] = mockConsentInsert.mock.calls[0];
+    const rows = Array.isArray(insertArg) ? insertArg : [insertArg];
+    rows.forEach((row: any) => {
+      expect(row).not.toHaveProperty('event_type');
+      expect(row).not.toHaveProperty('document_version');
+      expect(row).not.toHaveProperty('actor_email');
+    });
+  });
+
+  // ── auth_event_log shape (T1.1 two-log schema) ────────────────────────────
+  // auth_event_log = auth lifecycle events ONLY.
+  // age_verified_adult written here for adults, NOT to consent_log.
+  it('writes age_verified_adult to auth_event_log for adult signup', async () => {
+    await POST(makeRequest({ ...validBody, dob: adultDob() }));
+    expect(mockAuthEventInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ event_type: 'age_verified_adult' })
     );
   });
 
-  it('does NOT insert age_verified_adult row for minor signup', async () => {
-    const minorDob = new Date(new Date().getFullYear() - 15, 0, 1).toISOString().split('T')[0];
-    await POST(makeRequest({ ...validBody, dob: minorDob }));
-    const allCalls = mockConsentInsert.mock.calls.flat(2);
-    const hasAdultEvent = allCalls.some(
-      (arg: any) => arg?.event_type === 'age_verified_adult'
+  it('does NOT write to auth_event_log for minor signup', async () => {
+    await POST(makeRequest({ ...validBody, dob: minorDob() }));
+    expect(mockAuthEventInsert).not.toHaveBeenCalled();
+  });
+
+  it('does NOT write age_verified_adult to consent_log (wrong table)', async () => {
+    await POST(makeRequest({ ...validBody, dob: adultDob() }));
+    const allConsentCalls = mockConsentInsert.mock.calls.flat(2);
+    const hasAdultEvent = allConsentCalls.some(
+      (arg: any) => arg?.event_type === 'age_verified_adult' || arg?.document_type === 'age_verified_adult'
     );
     expect(hasAdultEvent).toBe(false);
   });
@@ -175,8 +241,30 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 when accept_terms is false', async () => {
+    const res  = await POST(makeRequest({ ...validBody, accept_terms: false }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 400 when password missing uppercase', async () => {
+    const res  = await POST(makeRequest({ ...validBody, password: 'secure123!' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when password missing number', async () => {
+    const res  = await POST(makeRequest({ ...validBody, password: 'SecurePass!' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when password shorter than 8 chars', async () => {
+    const res  = await POST(makeRequest({ ...validBody, password: 'S1!' }));
+    expect(res.status).toBe(400);
+  });
+
   // ── Duplicate email ────────────────────────────────────────────────────────
-  it('returns 409 with EMAIL_ALREADY_EXISTS when Supabase returns a duplicate email error', async () => {
+  it('returns 409 with EMAIL_ALREADY_EXISTS when Supabase returns duplicate email error', async () => {
     mockCreateUser.mockResolvedValueOnce({
       data:  { user: null },
       error: { message: 'User already registered', code: '23505' },
@@ -187,13 +275,36 @@ describe('POST /api/auth/signup', () => {
     expect(body.error).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  // ── Rollback on students insert failure ────────────────────────────────────
-  it('deletes the auth user and returns 500 SIGNUP_FAILED if students INSERT fails', async () => {
+  // ── Rollback scenarios ─────────────────────────────────────────────────────
+  it('deletes auth user and returns 500 SIGNUP_FAILED if students INSERT fails', async () => {
     mockStudentsInsert.mockResolvedValueOnce({ error: { message: 'insert failed' } });
     const res  = await POST(makeRequest(validBody));
     expect(res.status).toBe(500);
     expect(mockDeleteUser).toHaveBeenCalledWith('mock-user-id');
     const body = await res.json();
     expect(body.error).toBe('SIGNUP_FAILED');
+  });
+
+  it('deletes auth user and returns 500 SIGNUP_FAILED if generateLink fails', async () => {
+    mockGenerateLink.mockResolvedValueOnce({ data: null, error: { message: 'link error' } });
+    const res  = await POST(makeRequest(validBody));
+    expect(res.status).toBe(500);
+    expect(mockDeleteUser).toHaveBeenCalledWith('mock-user-id');
+    const body = await res.json();
+    expect(body.error).toBe('SIGNUP_FAILED');
+  });
+
+  it('deletes auth user and returns 500 SIGNUP_FAILED if Resend email delivery fails', async () => {
+    mockResendSend.mockResolvedValueOnce({ error: { message: 'send failed' } });
+    const res  = await POST(makeRequest(validBody));
+    expect(res.status).toBe(500);
+    expect(mockDeleteUser).toHaveBeenCalledWith('mock-user-id');
+    const body = await res.json();
+    expect(body.error).toBe('SIGNUP_FAILED');
+  });
+
+  it('does NOT call deleteUser on successful signup', async () => {
+    await POST(makeRequest(validBody));
+    expect(mockDeleteUser).not.toHaveBeenCalled();
   });
 });
