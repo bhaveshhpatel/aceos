@@ -27,6 +27,8 @@
 
 ## S1-F-01 · Email Sign-Up
 
+> **Re-validated: Session 5 (2026-04-26)** — PSE × PPM deliberation. AC-03b, AC-05b, AC-05c, AC-06 (expanded), and AC-07 added. Story had not been formally re-reviewed after G1 flow change. Now validated against current T1.4 state machine.
+
 **As a** prospective student,
 **I want to** create an AceOS account using my email address and a password,
 **so that** I can access the platform without needing a Google account.
@@ -36,7 +38,7 @@
 2. User enters: first name, last name, email address, password, date of birth.
 3. User checks the Privacy Policy & ToS checkbox.
 4. User clicks **Create Account**.
-5. System validates all fields.
+5. System validates all fields (client-side AND server-side via Zod).
 6. System creates a Supabase Auth user and a matching `students` row.
 7. **All users** are redirected to `/verify-email` first.
 8. After verifying email: adults → `/onboarding/subjects`; minors → `/onboarding/consent`.
@@ -46,7 +48,7 @@
 **AC-01 · Valid registration succeeds**
 - Given a user submits all required fields with a valid email, a password ≥ 8 characters containing at least one uppercase letter and one number, and a valid date of birth
 - When they click **Create Account**
-- Then a new account is created, an email verification link is sent, and the user sees the `/verify-email` holding screen
+- Then a new account is created, an email verification link is sent via Resend (see S1-F-04), and the user sees the `/verify-email` holding screen
 
 **AC-02 · Duplicate email is rejected**
 - Given an email address that already exists in the system
@@ -54,11 +56,17 @@
 - Then the form shows an inline error: "An account with this email already exists. Sign in instead?"
 - And no new account is created
 
-**AC-03 · Password too weak is rejected**
+**AC-03 · Password too weak is rejected (client-side)**
 - Given a password shorter than 8 characters or missing an uppercase letter or missing a number
 - When the user submits the form
 - Then the password field shows the specific rule that failed
 - And the form does not submit
+
+**AC-03b · Password too weak is rejected (server-side) — added Session 5**
+- Given a direct POST to `/api/auth/signup` with a weak password that bypasses client-side validation
+- When the API processes the request
+- Then the API returns HTTP 400 with `{ error: 'VALIDATION_ERROR', fields: { password: '<specific rule message>' } }`
+- And `supabase.auth.admin.createUser` is NOT called
 
 **AC-04 · Missing required field blocks submission**
 - Given any required field (first name, last name, email, password, date of birth) is empty
@@ -71,10 +79,35 @@
 - When the user submits
 - Then the DOB field shows "Please enter a valid date of birth"
 
-**AC-06 · User row created in database**
+**AC-05b · Exactly 18 today is treated as adult — added Session 5**
+- Given a date of birth that makes the student exactly 18 years old on the day of sign-up
+- When they submit the form
+- Then `students.account_status` is set to `active`
+- And the student is NOT routed through the parental consent flow
+
+**AC-05c · 17 years 364 days old is treated as minor — added Session 5**
+- Given a date of birth that makes the student 17 years and 364 days old on the day of sign-up (birthday is tomorrow)
+- When they submit the form
+- Then `students.account_status` is set to `pending_age_check`
+- And the student IS routed through the parental consent flow after email verification
+
+**AC-06 · User row created in database with complete shape — expanded Session 5**
 - Given a successful sign-up
-- Then a row exists in `students` with `id` matching the Supabase Auth UID, `email`, `first_name`, `last_name`, `dob`, `created_at`, and `email_verified = false`
+- Then a row exists in `students` with ALL of the following:
+  - `id` matching the Supabase Auth UID
+  - `email`, `first_name`, `last_name`, `dob` set to submitted values
+  - `account_status` = `'active'` (adult) or `'pending_age_check'` (minor)
+  - `email_verified` = `false`
+  - `onboarding_completed` = `false`
+  - `parent_email` = `null` (set later by `POST /api/auth/consent/send`, not at signup)
 - And row-level security permits only that student's own UID to read the row
+
+**AC-07 · Signup failure is atomic — added Session 5**
+- Given the system successfully creates a Supabase Auth user but then fails to insert the `students` row
+- When the error is caught
+- Then `supabase.auth.admin.deleteUser` is called with the newly created auth UID (rollback)
+- And the API returns HTTP 500 with `{ error: 'SIGNUP_FAILED' }` (no raw DB error exposed to client)
+- And a student who encountered this error can retry sign-up with the same email without receiving a duplicate-email error
 
 ---
 
@@ -528,4 +561,4 @@
 ---
 
 *Sprint 1 Functional Stories | AceOS Phase 1 · Epic 1 | April 2026 | Internal*
-*Last updated: 2026-04-26 (Session 5) — G1: minor flow fixed (email verify first, then parent email). G2: resend + correct-email ACs added to S1-F-03. G3: legal placeholder strategy documented. G4: S1-F-07 AC-04 full state-machine redirect defined. G5: S1-F-05 AC-06 guard extended to full /onboarding/* namespace. Pre-launch actions table added.*
+*Last updated: 2026-04-26 (Session 5) — G1: minor flow fixed. G2: resend + correct-email ACs added to S1-F-03. G3: legal placeholder strategy. G4: S1-F-07 AC-04 full redirect matrix. G5: /onboarding/* namespace guard. Pre-launch actions table added. Session 5 deliberation: S1-F-01 re-validated — AC-03b, AC-05b, AC-05c, AC-06 (expanded), AC-07 added. Test files: __tests__/api/auth/signup/*.*
