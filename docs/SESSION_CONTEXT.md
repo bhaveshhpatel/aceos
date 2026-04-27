@@ -13,9 +13,9 @@ AceOS is an AP exam prep platform. MVP product: **score-boost-ap**.
 - **Backend**: Next.js API routes (server-side only)
 - **Database**: Supabase (PostgreSQL) — project `olybgkhggqnmrfcjjojy`, region `us-west-1`
 - **Auth**: Supabase Auth + custom age-gate/parental consent flow
-- **Email**: Resend (installed, API key in Vercel env, not yet wired up)
+- **Email**: Resend (installed, API key in Vercel env, NOT yet wired up)
 - **Testing**: Vitest + Testing Library (unit), Playwright (e2e — planned)
-- **CI/CD**: GitHub Actions → Vercel API (deploy.yml)
+- **CI/CD**: GitHub Actions → Vercel API (`deploy.yml`)
 - **Deployment**: Vercel — https://aceos-ai.vercel.app
 - **Repo**: https://github.com/bhaveshhpatel/aceos
 
@@ -23,45 +23,81 @@ AceOS is an AP exam prep platform. MVP product: **score-boost-ap**.
 
 ## Sprint 1 Story Status
 
-| ID | Story | Status | Branch / Notes |
+### Functional Stories (`docs/phase-1/epic-1/Sprint_1_Functional_Stories.md`)
+
+| ID | Story | Status | Notes |
 |---|---|---|---|
-| S1-F-01 | Email Sign-Up | ✅ Done | Merged to main |
-| S1-F-02 | Transactional Email (Resend) | 🔲 Next | Not started — need Resend domain confirmation |
-| S1-F-03 | Age Gate & Parental Consent | 🔲 Blocked on S1-F-02 | |
-| S1-F-04 | Email Verification + Auth Callback | 🔲 Blocked on S1-F-02 | |
-| S1-F-05 | Sign In | 🔲 Not started | |
-| S1-F-06 | Forgot / Reset Password | 🔲 Not started | |
-| S1-F-07 | Google OAuth | 🔲 Not started — needs Google Cloud OAuth app | |
-| S1-F-08 | Onboarding Flow | 🔲 Not started | |
+| S1-F-01 | Email Sign-Up | ✅ Done | Merged to main. Signup → `students` insert + `consent_log` insert + `generateLink()`. Redirects to `/verify-email`. |
+| S1-F-02 | Google OAuth Sign-Up & Sign-In | 🔲 Not started | Needs Google Cloud OAuth app. Supabase provider not enabled yet. |
+| S1-F-03 | Age Gate & Parental Consent Flow | 🔲 Next after email | Blocked on S1-F-09 (email delivery). age gate branching logic exists in signup route. |
+| S1-F-04 | Email Verification | 🔲 Not started | `generateLink()` called but no email sent. Blocked on Resend wiring. |
+| S1-F-05 | Student Onboarding: AP Subject Selection | 🔲 Not started | |
+| S1-F-06 | Student Dashboard Shell | 🔲 Not started | |
+| S1-F-07 | Session Persistence & Sign-Out | 🔲 Not started | Supabase session handling exists via middleware but sign-out not built. |
+| S1-F-08 | Privacy Policy & ToS Acceptance | ✅ Partial | Checkbox exists on signup form. `consent_log` rows written. Legal pages (`/legal/*`) not built yet → return 404. |
+| S1-F-09 | Parental Consent Email Delivery | 🔲 Not started | Requires Resend wiring (S1-F-02 equivalent). |
+| S1-F-10 | Account Recovery (Forgot Password) | 🔲 Not started | `/forgot-password` returns 404. |
+
+### Technical Stories (`docs/phase-1/epic-1/Sprint_1_Technical_Stories.md`)
+
+| ID | Story | Status | Notes |
+|---|---|---|---|
+| T1.1 | Supabase Schema Bootstrap | ✅ Partial | `students` + `consent_log` tables exist and work. Schema diverges from spec (see Schema Drift section below). |
+| T1.2 | Vercel Deployment Pipeline | ✅ Done | `deploy.yml` uses Vercel CLI API approach (not `amondnet/vercel-action` as specced — works better). `test.yml` and `preview.yml` also exist. |
+| T1.3 | LiteLLM Gateway Configuration | 🔲 Not started | Sprint 2+. |
+| T1.4 | Authentication System Implementation | ✅ Partial | Email signup done. Google OAuth not started. Parental consent email not wired. Consent token/callback not built. |
+| T1.5 | Subject Selection Screen | 🔲 Not started | |
+| T1.6 | Privacy Policy & ToS Pages | 🔲 Not started | Routes return 404. |
+| T1.7 | Profile Auto-Creation Trigger | ⚠️ Diverged | Spec says `profiles` table + DB trigger. Actual: `students` table inserted manually via API route. Trigger does NOT exist. Decision needed: align to spec or keep current approach. |
+| T1.8 | Error Boundary & Graceful Degradation | 🔲 Not started | Raw Supabase errors may surface. |
+
+---
+
+## ⚠️ Schema Drift — Needs Decision
+
+The technical spec (`T1.1`, `T1.7`) defines a `profiles` table with a DB trigger for auto-creation.
+Actual implementation uses a `students` table with manual insertion in the API route.
+
+| Spec | Actual | Impact |
+|---|---|---|
+| Table: `profiles` | Table: `students` | All queries reference wrong table name if spec is followed |
+| Column: `parental_consent_status` | Column: `account_status` | Values also differ (`pending` vs `pending_age_check`) |
+| Column: `is_minor` (computed) | Not present | No DB-level minor flag |
+| Table: `consent_audit_log` | Table: `consent_log` | Column names also differ |
+| Auto-creation via DB trigger | Manual insert in API route | If trigger is added later, double-insert risk |
+
+**Decision needed at start of next session:** Do we refactor to align with spec, or update the spec to match implementation?
+Recommendation: update spec to match implementation — the manual insert approach is simpler and more testable.
 
 ---
 
 ## What Was Done This Session
 
-### Infrastructure
+### Infrastructure Fixes
 - Fixed Vercel auto-deploy: Vercel GitHub App was not creating webhooks. Full uninstall/reinstall fixed it.
-- Added `deploy.yml` GitHub Actions workflow — deploys to Vercel via API on every push to main (tests must pass first). Replaces broken webhook dependency.
-- Added `not-found.tsx` to fix Next.js build error (`/_not-found` page collection failure).
-- Fixed `NEXT_PUBLIC_APP_URL` in Vercel env — was missing `https://` prefix, causing `new URL()` to throw at build time.
-- Fixed `middleware.ts` — `/api/auth` was missing from `PUBLIC_PATHS`, causing signup POST to be intercepted and redirected to `/signin` (405 error).
+- Added `deploy.yml` — deploys to Vercel via CLI API on push to main (after tests pass).
+- Added `app/not-found.tsx` — fixed Next.js build failure on `/_not-found` page collection.
+- Fixed `NEXT_PUBLIC_APP_URL` in Vercel env — was missing `https://` prefix, causing `new URL()` to throw.
+- Fixed `middleware.ts` — `/api/auth` was missing from `PUBLIC_PATHS`, causing signup POST → 405.
 
-### S1-F-01 — Email Sign-Up
-- Signup flow is fully working end-to-end in production.
-- Form validates with Zod (6 fields: first name, last name, email, password, DOB, ToS checkbox).
-- API route (`POST /api/auth/signup`) creates Supabase Auth user, inserts `students` row, inserts 2 `consent_log` rows, calls `generateLink()` (magiclink type).
+### S1-F-01 — Email Sign-Up (✅ Complete)
+- Signup flow working end-to-end in production.
+- Form: first name, last name, email, password, DOB, ToS checkbox.
+- API route creates: Supabase Auth user → `students` row → 2 `consent_log` rows → `generateLink()` call.
 - Redirects to `/verify-email` on success.
-- **Note**: Verification email is NOT sent yet — `generateLink()` generates a link but Resend is not wired up. That is S1-F-02.
+- **Verification email NOT sent** — `generateLink()` generates link only. Resend not wired. This is S1-F-04/S1-F-09.
 
 ### Test Debt Payoff
-- PR #3 merged: `tests/unit/auth/middleware.test.ts` — 20 test cases covering `isPublicPath()` logic.
-- Confirmed existing tests cover: age gate branching, consent_log insertion, rollback on failure, schema validation.
+- PR #3 merged: `tests/unit/auth/middleware.test.ts` — 20 cases for `isPublicPath()` logic.
+- Confirmed existing tests cover: age gate branching (`pending_age_check` vs `active`), `consent_log` insertion, rollback on failure, Zod schema validation.
 
 ---
 
 ## Open Questions / Decisions Needed
 
-1. **Resend sending domain**: Are we using a verified custom domain (e.g. `hello@aceos.app`) or `onboarding@resend.dev` for now? This affects S1-F-02 implementation.
-2. **Google OAuth**: Needs a Google Cloud project with OAuth 2.0 credentials. Redirect URI: `https://olybgkhggqnmrfcjjojy.supabase.co/auth/v1/callback`. Not blocking Sprint 1.
+1. **Schema drift**: Align DB schema to spec (`profiles` + trigger) or update spec to match implementation (`students` + manual insert)? Recommendation: update spec.
+2. **Resend sending domain**: Verified custom domain (e.g. `hello@aceos.app`) or `onboarding@resend.dev` for now? Needed before S1-F-04/S1-F-09.
+3. **Google OAuth**: Needs Google Cloud project with OAuth 2.0 credentials. Redirect URI: `https://olybgkhggqnmrfcjjojy.supabase.co/auth/v1/callback`. Not blocking current work.
 
 ---
 
@@ -69,26 +105,29 @@ AceOS is an AP exam prep platform. MVP product: **score-boost-ap**.
 
 | Issue | Status | Notes |
 |---|---|---|
-| Google OAuth returns 400 `unsupported provider` | 🔲 Open | Google provider not enabled in Supabase. Not Sprint 1 priority. |
-| Verification email not sent after signup | 🔲 Open | By design — Resend not wired up yet. S1-F-02 fixes this. |
-| `/forgot-password` page returns 404 | 🔲 Open | Page not built yet. S1-F-06. |
-| `/legal/*` pages return 404 | 🔲 Open | Legal pages not built yet. |
+| Google OAuth: `unsupported provider` (400) | 🔲 Open | Google provider not enabled in Supabase. Not Sprint 1 priority. |
+| Verification email not sent after signup | 🔲 Open | By design — Resend not wired. S1-F-04 fixes this. |
+| `/forgot-password` returns 404 | 🔲 Open | Page not built yet. S1-F-10. |
+| `/legal/*` returns 404 | 🔲 Open | Legal pages not built. T1.6. |
+| No DB trigger for profile auto-creation | 🔲 Open | Manual insert in API route works but diverges from T1.7 spec. |
+| Error boundaries not implemented | 🔲 Open | Raw errors may surface. T1.8. |
 
 ---
 
-## Environment Variables (Vercel — Production)
+## Environment Variables
 
 | Variable | Status | Notes |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ Set | `https://olybgkhggqnmrfcjjojy.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Set | |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ Set | Required for `auth.admin.*` calls |
-| `NEXT_PUBLIC_APP_URL` | ✅ Set | `https://aceos-ai.vercel.app` |
-| `RESEND_API_KEY` | ✅ Set | Key exists but Resend not wired up yet |
-| `VERCEL_TOKEN` | ✅ Set | GitHub Actions secret for deploy.yml |
-| `VERCEL_ORG_ID` | ✅ Set | GitHub Actions secret for deploy.yml |
-| `VERCEL_PROJECT_ID` | ✅ Set | GitHub Actions secret for deploy.yml |
-| `NEXT_PUBLIC_POSTHOG_KEY` | ❓ Unknown | In README, not confirmed in Vercel |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ Set | Required for `auth.admin.*` calls. Never expose to browser. |
+| `NEXT_PUBLIC_APP_URL` | ✅ Set | `https://aceos-ai.vercel.app` (must include `https://`) |
+| `RESEND_API_KEY` | ✅ Set | Key exists in Vercel. Resend not wired up in code yet. |
+| `VERCEL_TOKEN` | ✅ Set | GitHub Actions secret |
+| `VERCEL_ORG_ID` | ✅ Set | GitHub Actions secret |
+| `VERCEL_PROJECT_ID` | ✅ Set | GitHub Actions secret |
+| `OPENAI_API_KEY` | ✅ Set | Sprint 2+ |
+| `GROQ_API_KEY` | ✅ Set | Sprint 2+ |
 
 ---
 
@@ -97,17 +136,30 @@ AceOS is an AP exam prep platform. MVP product: **score-boost-ap**.
 | File | Trigger | What it does |
 |---|---|---|
 | `.github/workflows/test.yml` | push + PR to main | Runs Vitest with coverage |
-| `.github/workflows/preview.yml` | PR to main | Runs Vitest for PR gating |
-| `.github/workflows/deploy.yml` | push to main | Runs tests → deploys to Vercel production via API |
+| `.github/workflows/preview.yml` | PR to main | Preview build check |
+| `.github/workflows/deploy.yml` | push to main | Runs tests → deploys to Vercel production via CLI API |
+
+---
+
+## Test Coverage Summary
+
+| File | What it tests |
+|---|---|
+| `tests/unit/auth/schemas.test.ts` | Zod validation for signup/signin schemas |
+| `tests/unit/auth/signup-api.test.ts` | POST /api/auth/signup — happy path, age gate branching, consent_log, rollback, duplicate email |
+| `tests/unit/auth/signin-api.test.ts` | POST /api/auth/signin |
+| `tests/unit/auth/utils.test.ts` | `getAgeFromDob()` — boundary cases, leap year, integer check |
+| `tests/unit/auth/middleware.test.ts` | `isPublicPath()` — all public paths, sub-paths, protected routes, false positives |
 
 ---
 
 ## How to Resume in a New Session
 
-1. Read this file first
+1. **Read this file first**
 2. Read `docs/phase-1/epic-1/Sprint_1_Functional_Stories.md` for story specs
-3. Next story: **S1-F-02 — Transactional Email**
-4. Start on a fresh branch: `feat/s1-f02-email`
-5. Write tests first (Resend mock, email dispatch, template rendering, error handling)
-6. Ask Dhruv: verified Resend domain or `onboarding@resend.dev` for now?
-7. Implement, get tests green, PR, merge
+3. Read `docs/phase-1/epic-1/Sprint_1_Technical_Stories.md` for technical specs
+4. Address the schema drift decision (see ⚠️ section above)
+5. **Next story: S1-F-04 / S1-F-09 — wire up Resend transactional email**
+6. Branch: `feat/s1-f04-email-verification`
+7. Write tests first — mock Resend SDK, test dispatch, template rendering, error handling
+8. Ask Dhruv: verified Resend domain or `onboarding@resend.dev` for now?
