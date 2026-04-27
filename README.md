@@ -40,3 +40,4 @@ npm run dev
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
 | `NEXT_PUBLIC_APP_URL` | Full app URL (e.g. https://aceos.vercel.app) |
 | `RESEND_API_KEY` | Resend API key for transactional email |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog analytics key (optional) |
