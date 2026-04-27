@@ -322,6 +322,7 @@ Scenario: Timeout enforced per route
 > **Updated 2026-04-26 (Session 3):** State machine corrected to use `students` table and actual `account_status` values.
 > **Gap Fix — Session 4:** `consent_log.document_version` convention documented.
 > **Gap Fix — Session 5 (G1, G6, G7, G9, G10):** Minor flow corrected (email verify first). `parent_email` written on consent send. Parent approval/decline routes fully specced. Middleware `declined` rule added. Race condition guard added to approval route.
+> **Gap Fix — Session 7 (S1-F-04):** `generateLink` → Resend handoff explicitly documented in state machine and implementation notes.
 
 **As a** backend engineer,
 **I need** email/password authentication with an age-gate flow, email verification, parental consent email delivery, and password recovery,
@@ -344,11 +345,14 @@ Scenario: Timeout enforced per route
         → insert consent_log: 'age_verified_adult' { document_version: NULL }
     → if age < 18:
         → students.account_status = 'pending_age_check'
-    → ALL USERS: generate Supabase verification link → send via Resend
-    → ALL USERS: redirect to /verify-email
+    → ALL USERS:
+        → supabase.auth.admin.generateLink({ type: 'signup', email })
+        → extract properties.action_link from response  ← NOT auto-sent by Supabase
+        → call Resend API with action_link as the verification URL
+        → redirect to /verify-email
     → on any failure: delete auth user (rollback)
 
-[Supabase email verification callback]
+[Supabase email verification callback — /auth/callback]
     → students.email_verified = true
     → redirect based on account_status:
         'active'           → /onboarding/subjects
@@ -463,6 +467,14 @@ Scenario: Minor signup → /verify-email (all users)
   And redirect = /verify-email
   And NOT redirected to /onboarding/consent (that comes after email verification)
 
+Scenario: generateLink called and action_link passed to Resend
+  Given a successful signup for any user
+  When POST /api/auth/signup completes
+  Then supabase.auth.admin.generateLink is called with { type: 'signup', email }
+  And properties.action_link from the response is passed as the verification URL to Resend
+  And Resend delivers the email to the user's inbox
+  And supabase does NOT auto-send any email (autoConfirm disabled in Supabase Auth settings)
+
 Scenario: Minor email verified → /onboarding/consent
   Given a minor with email_verified = false
   When they click the verification link
@@ -530,6 +542,7 @@ Scenario: Reset email sent without revealing account existence
 ```
 
 ### Implementation Notes
+- **`generateLink` → Resend handoff (S1-F-04):** `supabase.auth.admin.generateLink` returns a response object — the verification URL lives at `data.properties.action_link`. This value must be explicitly extracted and passed to Resend as the link in the verification email. The route does NOT auto-send any email; Supabase Auth email sending must be disabled in the Supabase dashboard (Auth → Settings → "Enable email confirmations" OFF, or SMTP left unconfigured) so that only the Resend call delivers the email.
 - Consent JWT signed with `CONSENT_JWT_SECRET` — a dedicated env var, NOT `SUPABASE_SERVICE_ROLE_KEY`
 - `SELECT FOR UPDATE` on approval/denial routes requires service role + raw SQL via `supabase.rpc` or `pg` direct connection
 - `document_version: '1.0'` passed explicitly — not a DB default
@@ -1137,4 +1150,4 @@ Scenario: Already-used consent link
 ---
 
 *Sprint 1 Technical Stories | Epic 1: Foundation & Legal | AceOS v1.0*
-*Last updated: 2026-04-26 (Session 5) — G1: minor flow fixed (verify email first). G2: awaiting-consent resend + wrong-email specced. G3: T1.6 placeholder strategy. G4: T1.9 full redirect matrix. G5: T1.10 /onboarding/* namespace guard. G6: T1.1 parent_email column. G7: T1.4 approve/deny routes fully specced. G8: T1.1 consent_log index. G9: T1.9 declined status rule. G10: T1.4 SELECT FOR UPDATE race guard. CONSENT_JWT_SECRET separated from service role key.*
+*Last updated: 2026-04-27 (Session 7) — T1.4 state machine updated: generateLink → Resend handoff made explicit (extract properties.action_link, pass to Resend, disable Supabase auto-send). New Gherkin scenario added: "generateLink called and action_link passed to Resend". Implementation notes expanded with exact extraction pattern and Supabase dashboard config requirement.*
