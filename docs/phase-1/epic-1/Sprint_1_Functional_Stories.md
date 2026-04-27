@@ -279,6 +279,8 @@
 
 ## S1-F-04 · Email Verification
 
+> **Updated: Session 8 (2026-04-27)** — AC-05 and AC-06 added following live test discovery of ghost auth user bug when Resend fails after successful DB writes.
+
 **As a** student who signed up with email,
 **I want to** verify my email address,
 **so that** I can confirm I own the address and protect my account.
@@ -320,6 +322,25 @@
 - When the resend is triggered
 - Then a new email is sent within 2 minutes
 - And the resend button is disabled for 60 seconds after clicking (cooldown)
+
+**AC-05 · Resend failure rolls back atomically — added Session 8**
+- Given the signup route has successfully created the auth user, inserted the `students` row, logged consent, and generated the verification link
+- When the Resend email delivery call fails (any non-success response or thrown error)
+- Then `supabase.auth.admin.deleteUser` is called and **awaited** with its own try/catch (not fire-and-forget)
+- And the `students` row is also deleted (or confirmed absent) before the error response is returned
+- And the API returns HTTP 500 with `{ error: 'SIGNUP_FAILED', message: 'Something went wrong. Please try again.' }`
+- And the user can immediately retry sign-up with the same email without receiving a duplicate-email error
+
+> **Root cause (Session 8):** Live testing revealed that when Resend fails after DB writes succeed, the auth user was not being cleaned up atomically. The `deleteUser` call in the `emailError` branch was fire-and-forget — if it failed silently, a ghost `auth.users` record remained with no corresponding `students` row, permanently locking the email address. This AC formalises the fix.
+
+**AC-06 · Rollback failure is observable — added Session 8**
+- Given the Resend failure rollback path is executing
+- When `supabase.auth.admin.deleteUser` itself fails (e.g. network error, Supabase outage)
+- Then the failure is logged via `console.error` with the auth UID, the original Resend error, and the deleteUser error
+- And an `auth_event_log` row is written with `event_type: 'signup_rollback_failed'`, `student_id`, and the error message (if the DB is still reachable)
+- And the API still returns HTTP 500 `SIGNUP_FAILED` to the client (rollback failure is never surfaced to the user)
+
+> **Rationale:** Without this, ghost `auth.users` records are invisible. The `signup_rollback_failed` event in `auth_event_log` makes them detectable via a simple query: `SELECT * FROM auth_event_log WHERE event_type = 'signup_rollback_failed'`. This is the monitoring hook for catching broken accounts before real users hit them.
 
 ---
 
@@ -602,4 +623,4 @@
 ---
 
 *Sprint 1 Functional Stories | AceOS Phase 1 · Epic 1 | April 2026 | Internal*
-*Last updated: 2026-04-26 (Session 7) — S1-F-01 AC-01: email delivery boundary note added (generateLink → Resend handoff owned by S1-F-04). S1-F-04 AC-01: rewritten to own the generateLink → Resend handoff and the /auth/callback routing logic.*
+*Last updated: 2026-04-27 (Session 8) — S1-F-04 AC-05 and AC-06 added: atomic rollback on Resend failure + rollback observability via auth_event_log. Discovered during live testing.*
