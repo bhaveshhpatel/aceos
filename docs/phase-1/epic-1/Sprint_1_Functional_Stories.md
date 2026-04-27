@@ -156,6 +156,8 @@
 
 ## S1-F-03 · Age Gate & Parental Consent Flow
 
+> **Re-validated: Session 6 (2026-04-26)** — PSE × PPM deliberation. AC-01b, AC-03 (Decline assertion added), AC-03b, AC-07 (hard-delete clarified), AC-09b added. G5 rejected — single-use token coverage lives in S1-F-09 AC-04 (cross-ref added to AC-05). G7 rejected — cooldown is T1.12 component spec.
+
 **As a** student who is under 18,
 **I want to** have a parental consent step in my sign-up,
 **so that** my parent can authorize my use of the platform in compliance with FERPA/COPPA requirements.
@@ -183,7 +185,14 @@
 - Given a student whose DOB makes them under 18 at time of sign-up
 - When they click their email verification link
 - Then they are redirected to `/onboarding/consent`
-- And their account status is `pending_age_check` (changes to `pending_consent` after they submit the parent email)
+- And their `account_status` is `pending_age_check`
+
+**AC-01b · Consent form submission transitions account_status — added Session 6**
+- Given a minor on `/onboarding/consent` who submits a valid parent email
+- When `POST /api/auth/consent/send` processes the request
+- Then `students.account_status` is updated from `pending_age_check` to `pending_consent`
+- And `students.parent_email` is set to the submitted parent email
+- And the student is redirected to `/onboarding/awaiting-consent`
 
 **AC-02 · Over-18 user bypasses consent**
 - Given a student whose DOB makes them 18 or older
@@ -191,22 +200,35 @@
 - Then they are redirected directly to `/onboarding/subjects`
 - And their account status is `active`
 
-**AC-03 · Consent email is sent**
+**AC-03 · Consent email contains both Approve and Decline actions — updated Session 6**
 - Given an under-18 student who enters a valid parent email on `/onboarding/consent`
 - When they submit the form
-- Then a consent email is delivered to the parent email address within 2 minutes
-- And the email contains an Approve button/link and a brief explanation of what AceOS is
+- Then a consent email is sent to the parent email address via Resend
+- And the email payload contains an **Approve** link pointing to `/api/auth/consent/approve?token=<jwt>`
+- And the email payload contains a **Decline** link pointing to `/api/auth/consent/deny?token=<jwt>`
+- And both links encode a signed JWT with `student_id` and `parent_email`
 
-**AC-04 · Invalid parent email is caught**
+> **COPPA/FERPA note:** A consent email without a Decline option does not constitute valid informed consent. Both actions are legally required.
+
+**AC-03b · Server-side parent email validation — added Session 6**
+- Given a direct POST to `/api/auth/consent/send` with a malformed parent email that bypasses client-side validation
+- When the API processes the request
+- Then the API returns HTTP 400 with `{ error: 'VALIDATION_ERROR', fields: { parent_email: '<message>' } }`
+- And no Resend call is made
+- And `students.parent_email` is not written
+
+**AC-04 · Invalid parent email is caught (client-side)**
 - Given an under-18 student who enters a malformed or missing parent email
 - When they attempt to submit the parental consent screen
 - Then an inline error appears: "Please enter a valid email address"
+- And the form does not submit
 
 **AC-05 · Parent approval activates the account**
 - Given a parent who receives and clicks the approval link
 - When the approval is processed
 - Then the student's `account_status` changes from `pending_consent` to `active`
 - And the student receives a confirmation email: "Your AceOS account is approved — you can now sign in."
+- Note: single-use token idempotency covered in S1-F-09 AC-04
 
 **AC-06 · Unapproved student cannot access features**
 - Given a student with `account_status = pending_consent`
@@ -214,22 +236,36 @@
 - Then they are redirected to `/onboarding/awaiting-consent`
 - And no product data is accessible
 
-**AC-07 · Parent can decline consent**
+**AC-07 · Parent decline permanently removes account (FERPA hard-delete) — updated Session 6**
 - Given a parent who clicks **Decline** in the consent email
 - When the decline is processed
-- Then the student's account is soft-deleted (`account_status = declined`)
+- Then `students.account_status` is set to `declined`
+- And `supabase.auth.admin.deleteUser()` is called to **permanently delete the `auth.users` record**
+- And a `consent_denied` row is written to `consent_log` before the auth record is deleted
 - And the student receives an email: "Your account could not be activated."
+
+> **FERPA hard-delete requirement:** This is NOT a soft-delete. The auth record must be physically removed. Retaining PII for a minor whose parent explicitly declined consent is a FERPA violation. Any implementation that only sets a status flag without calling `deleteUser` does not satisfy this AC.
 
 **AC-08 · Student can resend consent email from waiting screen**
 - Given a student on `/onboarding/awaiting-consent`
 - When they click **Resend**
-- Then the consent email is re-sent to the same parent email
+- Then `POST /api/auth/consent/send` is called
+- And the consent email is re-sent to the `parent_email` stored on the `students` row
 - And a success message is shown: "Approval request resent"
 
 **AC-09 · Student can correct parent email**
 - Given a student on `/onboarding/awaiting-consent`
 - When they click "Wrong email?"
 - Then they are navigated back to `/onboarding/consent` to re-enter the parent email
+
+**AC-09b · Corrected parent email overwrites previous value in database — added Session 6**
+- Given a student who previously submitted `parent@old.com` and is now on `/onboarding/consent` with a new email
+- When they submit `parent@new.com`
+- Then `students.parent_email` is updated to `parent@new.com` (old value overwritten)
+- And the consent email is sent to `parent@new.com`
+- And `parent@old.com` receives no further emails
+
+> **Privacy note:** Sending a consent email to the original address after the student has corrected it would constitute an unauthorized disclosure of the student's enrollment to an unintended recipient.
 
 **AC-10 · Declined user cannot access features or re-enter flow**
 - Given a student with `account_status = declined`
@@ -561,4 +597,4 @@
 ---
 
 *Sprint 1 Functional Stories | AceOS Phase 1 · Epic 1 | April 2026 | Internal*
-*Last updated: 2026-04-26 (Session 5) — G1: minor flow fixed. G2: resend + correct-email ACs added to S1-F-03. G3: legal placeholder strategy. G4: S1-F-07 AC-04 full redirect matrix. G5: /onboarding/* namespace guard. Pre-launch actions table added. Session 5 deliberation: S1-F-01 re-validated — AC-03b, AC-05b, AC-05c, AC-06 (expanded), AC-07 added. Test files: __tests__/api/auth/signup/*.*
+*Last updated: 2026-04-26 (Session 6) — S1-F-03 re-validated via PSE × PPM deliberation. G1: AC-01b added (pending_age_check → pending_consent transition). G2: AC-03 updated (Decline link required — COPPA). G3: AC-03b added (server-side parent email validation). G4: AC-07 rewritten (FERPA hard-delete, explicit deleteUser requirement). G6: AC-09b added (parent_email overwrite on correction). G5/G7 rejected.*
