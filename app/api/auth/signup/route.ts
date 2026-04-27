@@ -152,12 +152,15 @@ export async function POST(request: NextRequest) {
     // 5. Generate verification link (S1-F-04 ownership).
     //    type: 'signup' — generates an email verification link (sets email_confirmed_at on click).
     //    NOT 'magiclink' — that generates a passwordless sign-in link and does NOT verify email.
+    //    password is required by GenerateSignupLinkParams type even though the link itself
+    //    is a one-time OTP URL — runtime behaviour is not affected by passing it here.
     //    /auth/callback reads account_status from DB and routes:
     //      active            → /onboarding/subjects
     //      pending_age_check → /onboarding/consent
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'signup',
       email,
+      password,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       },
