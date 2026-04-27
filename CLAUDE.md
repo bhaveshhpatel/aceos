@@ -57,6 +57,38 @@ Full Gherkin rules, automation mapping, and scenario writing standards: `.contex
 
 ---
 
+## Critical Testing Constraints (Vitest + jsdom)
+
+> **Read this before writing any test involving Next.js runtime objects.**
+
+- **Vitest environment is `jsdom`**, not the Next.js edge runtime.
+- `NextRequest` / `NextResponse.next({ request: { headers } })` **cannot be used in Vitest tests** — throws `request.headers must be an instance of Headers` at runtime.
+- `NextResponse.redirect()` and `NextResponse.next()` are safe in tests **only if** called with no arguments or with a plain URL string.
+- **Pattern for middleware tests:** Extract pure logic functions (e.g. `isPublicPath(pathname)`, `resolveDestination(pathname, isAuthenticated)`) and test those directly. Full redirect behaviour (status codes, cookies, headers) belongs in Playwright E2E tests.
+- **`vi.hoisted()` is required** for any mock function that is referenced inside a `vi.mock()` factory. Declare all mock fns inside `vi.hoisted()` to prevent TDZ `ReferenceError` when Vitest hoists `vi.mock()` calls above variable declarations.
+
+```typescript
+// ✅ Correct pattern
+const { mockSignInWithPassword, mockGetUser } = vi.hoisted(() => ({
+  mockSignInWithPassword: vi.fn(),
+  mockGetUser: vi.fn(),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createServerClient: vi.fn(() => ({
+    auth: { signInWithPassword: mockSignInWithPassword, getUser: mockGetUser },
+  })),
+}));
+
+// ❌ Wrong — TDZ ReferenceError
+const mockSignInWithPassword = vi.fn();
+vi.mock('@/lib/supabase/server', () => ({
+  createServerClient: vi.fn(() => ({ auth: { signInWithPassword: mockSignInWithPassword } })),
+}));
+```
+
+---
+
 ## Standards Files Index
 
 For any task, read the relevant standards file FIRST. These files are the authoritative rules for this codebase.
@@ -89,8 +121,8 @@ AI Models:    GPT-4o (grading), GPT-4o-mini (MCQ), Groq/Llama-3.3-70b (fast infe
 STEM Valid:   Modal.com Python sandbox (sympy, numpy, scipy, chempy)
 Sched. Rep.:  FSRS-5 algorithm (self-hosted, open source)
 Deployment:   Vercel (frontend), Render/Modal (backend services)
-CI/CD:        GitHub Actions
-Testing:      Vitest (unit), Playwright (E2E), Gherkin (BDD scenarios)
+CI/CD:        GitHub Actions (Vitest unit tests only — jsdom environment)
+Testing:      Vitest (unit/jsdom), Playwright (E2E), Gherkin (BDD scenarios)
 Monitoring:   Supabase metric tables + structured logs
 ```
 
@@ -159,21 +191,36 @@ aceos/
 
 ## Current Phase: Phase 1 — Epic 1 (Sprints 1–2)
 
-### What is built / in progress:
-- Sprint 1: Auth, Supabase schema (SIP v0), onboarding flow, legal/FERPA groundwork
-- Sprint 2: Modal sandbox, LiteLLM gateway, prompt template system, error handling, QA pipeline
+### Sprint 1 Functional Status
+
+| Story | Status |
+|---|---|
+| S1-F-01 Email Sign-Up | ✅ **CLOSED** (April 27, 2026) |
+| S1-F-02 Google OAuth | ✅ Complete |
+| S1-F-07 Session Persistence & Sign-Out | ✅ Complete |
+| S1-F-08 Privacy Policy & ToS Acceptance | ✅ Complete |
+| S1-F-04 Email Verification (Resend wiring) | 🔄 Next |
+| S1-F-09 Parental Consent Email | 🔄 Next |
+| S1-F-03 Age Gate & Parental Consent Flow | ❌ Not started |
+| S1-F-05 AP Subject Selection | ❌ Not started |
+| S1-F-06 Student Dashboard Shell | ❌ Not started |
+| S1-F-10 Account Recovery | ❌ Not started |
+
+### Sprint 2 Technical Status: ✅ COMPLETE
+- TS2-01 Modal STEM Sandbox (files pushed, deploy pending)
+- TS2-02 AI Gateway
+- TS2-03 Prompt Template System
+- TS2-04 Error Handling
+- TS2-05 QA Harness
+
+### Sprint 2 Functional: ❌ NOT STARTED
+Diagnostic flow, MCQ engine, FRQ grader. Starts after Sprint 1 Functional complete.
 
 ### Sprint stories (source of truth for acceptance criteria):
 - `docs/phase-1/epic-1/Sprint_1_Functional_Stories.md`
 - `docs/phase-1/epic-1/Sprint_1_Technical_Stories.md`
 - `docs/phase-1/epic-1/Sprint_2_Functional_Stories.md`
 - `docs/phase-1/epic-1/Sprint_2_Technical_Stories.md`
-
-### Gherkin feature files (source of truth for test automation):
-- `tests/gherkin/sprint-1/functional/` — all S1-F-XX stories
-- `tests/gherkin/sprint-1/technical/` — all T1-X stories
-- `tests/gherkin/sprint-2/functional/` — all S2-F-XX stories
-- `tests/gherkin/sprint-2/technical/` — all TS2-XX stories
 
 ---
 
@@ -236,6 +283,14 @@ callAI({ route: 'frq_grading', messages: [{ content: `Is ${answer} correct?` }] 
 
 // ❌ Implementation before .feature file
 // Writing code before the Gherkin scenario is written and reviewed
+
+// ❌ Mock fn declared outside vi.hoisted() when used in vi.mock() factory
+const mockFn = vi.fn(); // ❌ — TDZ error
+vi.mock('...', () => ({ fn: mockFn }));
+
+// ❌ NextRequest/NextResponse.next({ request }) in Vitest
+// jsdom cannot instantiate Next.js edge runtime objects
+new NextRequest('http://localhost/...')  // ❌ in Vitest unit tests
 ```
 
 ---
