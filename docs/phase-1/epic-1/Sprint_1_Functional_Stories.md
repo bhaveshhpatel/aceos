@@ -48,7 +48,9 @@
 **AC-01 · Valid registration succeeds**
 - Given a user submits all required fields with a valid email, a password ≥ 8 characters containing at least one uppercase letter and one number, and a valid date of birth
 - When they click **Create Account**
-- Then a new account is created, an email verification link is sent via Resend (see S1-F-04), and the user sees the `/verify-email` holding screen
+- Then a new account is created and the user sees the `/verify-email` holding screen
+
+> **Email delivery boundary (Session 7):** This story's scope ends at account creation and redirect to `/verify-email`. The act of generating the verification link via `supabase.auth.admin.generateLink` and delivering it to the user's inbox via Resend is the implementation responsibility of **S1-F-04**. The `POST /api/auth/signup` route calls `generateLink` and passes `properties.action_link` to Resend — but that handoff is specced, tested, and owned in S1-F-04, not here.
 
 **AC-02 · Duplicate email is rejected**
 - Given an email address that already exists in the system
@@ -292,11 +294,14 @@
 
 ### Acceptance Criteria
 
-**AC-01 · Verification link marks email verified and routes correctly**
-- Given a student who has not yet verified their email
-- When they click the verification link in the email
+**AC-01 · Verification email is sent and link marks email verified — updated Session 7**
+- Given a student who has just completed sign-up
+- Then `POST /api/auth/signup` calls `supabase.auth.admin.generateLink` and passes `properties.action_link` to Resend to deliver the verification email
+- When the student clicks the verification link in that email
 - Then `email_verified` is set to `true` in the database
-- And they are redirected to the correct next step based on their account_status (see flow above)
+- And they are redirected to the correct next step based on their `account_status` (see flow above)
+
+> **Implementation ownership (Session 7):** The `generateLink` → Resend handoff lives in `app/api/auth/signup/route.ts` but is specced and tested here in S1-F-04, not in S1-F-01. S1-F-01's scope ends at account creation + redirect to `/verify-email`. This story owns: (a) `generateLink` is called with correct params, (b) `properties.action_link` is extracted and passed to Resend, (c) Resend call succeeds, (d) the `/auth/callback` handler sets `email_verified = true` and routes by `account_status`.
 
 **AC-02 · Expired link shows helpful message**
 - Given a verification link that is more than 24 hours old
@@ -597,4 +602,4 @@
 ---
 
 *Sprint 1 Functional Stories | AceOS Phase 1 · Epic 1 | April 2026 | Internal*
-*Last updated: 2026-04-26 (Session 6) — S1-F-03 re-validated via PSE × PPM deliberation. G1: AC-01b added (pending_age_check → pending_consent transition). G2: AC-03 updated (Decline link required — COPPA). G3: AC-03b added (server-side parent email validation). G4: AC-07 rewritten (FERPA hard-delete, explicit deleteUser requirement). G6: AC-09b added (parent_email overwrite on correction). G5/G7 rejected.*
+*Last updated: 2026-04-26 (Session 7) — S1-F-01 AC-01: email delivery boundary note added (generateLink → Resend handoff owned by S1-F-04). S1-F-04 AC-01: rewritten to own the generateLink → Resend handoff and the /auth/callback routing logic.*
