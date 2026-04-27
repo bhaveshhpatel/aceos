@@ -9,6 +9,7 @@
  *
  * Route structure:
  *   Public:          /signin  /signup  /verify-email  /forgot-password  /auth/*  /legal/*
+ *   Public API:      /api/auth/*  (signup, signin, OAuth — no session required)
  *   Onboarding:      /onboarding/[product]/*  (auth required, no onboarding check here)
  *   Protected:       /[product]/dashboard  /[product]/*
  */
@@ -23,6 +24,7 @@ const PUBLIC_PATHS = [
   '/reset-password',
   '/auth',
   '/legal',
+  '/api/auth',
   '/_next',
   '/favicon.ico',
   '/robots.txt',
