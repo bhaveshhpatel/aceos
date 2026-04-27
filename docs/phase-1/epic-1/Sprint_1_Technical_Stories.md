@@ -19,6 +19,8 @@ These technical stories define the engineering implementation for Sprint 1. Ever
 > **Schema Drift Notice — Updated 2026-04-26**
 > Original spec used a `profiles` table. Actual implementation uses a `students` table with manual insertion in the API route. This story has been updated to reflect the implemented schema. The `profiles` table, `is_minor` computed column, and DB trigger (T1.7) are superseded. See T1.7 for the supersession notice.
 
+> **Gap Fix — Session 4 (2026-04-26):** Added `mastery_data JSONB` column to `student_subjects`. This column is referenced in S1-F-05 AC-04 as the per-subject mastery record. Decision: JSONB on `student_subjects` (not a separate table) for Sprint 1 simplicity. Can be normalized in Sprint 2+ when mastery scoring logic is defined.
+
 **As a** backend engineer,
 **I need** the Supabase project configured with the correct database schema, RLS policies, and auth settings,
 **So that** all subsequent features have a secure, consistent data foundation.
@@ -29,7 +31,7 @@ These technical stories define the engineering implementation for Sprint 1. Ever
 - Row Level Security (RLS) enabled on every table
 - Supabase Auth configured for email/password (Google OAuth is S1-F-02, not yet enabled)
 
-### Database Schema — Actual Implementation
+### Database Schema — Canonical Implementation
 
 ```sql
 -- Enable UUID extension
@@ -69,6 +71,10 @@ CREATE TABLE consent_log (
       'age_verified_adult'
     )
   ),
+  -- Sprint 1 convention: document_version is hardcoded "1.0" for tos_accepted
+  -- and privacy_policy_accepted events. All other event types set this to NULL.
+  -- When legal documents are updated, bump to "1.1", "2.0", etc.
+  -- The signup API route must always pass document_version: "1.0" explicitly.
   document_version TEXT,
   actor_email TEXT,
   ip_address INET,
@@ -78,6 +84,9 @@ CREATE TABLE consent_log (
 );
 
 -- student_subjects (created during onboarding — Sprint 1 S1-F-05)
+-- mastery_data stores per-subject mastery state as JSONB.
+-- Sprint 1: initialized as {} on insert. Structure defined in Sprint 2 when
+-- diagnostic + mastery scoring logic is implemented.
 CREATE TABLE student_subjects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
@@ -85,6 +94,7 @@ CREATE TABLE student_subjects (
   subject_name TEXT NOT NULL,
   exam_date DATE,
   is_active BOOLEAN DEFAULT TRUE,
+  mastery_data JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(student_id, subject_code)
 );
@@ -158,15 +168,15 @@ Scenario: Client cannot read consent_log
 Scenario: students row shape is correct after signup
   Given a successful email signup for student "Maria Chen", dob 2000-01-15
   Then a students row exists with:
-    | column           | value                        |
-    | id               | matches auth.users uid       |
-    | email            | submitted email              |
-    | first_name       | "Maria"                      |
-    | last_name        | "Chen"                       |
-    | dob              | 2000-01-15                   |
-    | account_status   | "active" (adult) or "pending_age_check" (minor) |
-    | email_verified   | false                        |
-    | onboarding_completed | false                    |
+    | column               | value                                            |
+    | id                   | matches auth.users uid                           |
+    | email                | submitted email                                  |
+    | first_name           | "Maria"                                          |
+    | last_name            | "Chen"                                           |
+    | dob                  | 2000-01-15                                       |
+    | account_status       | "active" (adult) or "pending_age_check" (minor)  |
+    | email_verified       | false                                            |
+    | onboarding_completed | false                                            |
 
 Scenario: account_status transitions are valid
   Given a student row with account_status = 'pending_age_check'
@@ -179,6 +189,18 @@ Scenario: consent_log event_type constraint is enforced
   Given a service_role client
   When it inserts a consent_log row with event_type = 'invalid_event'
   Then the insert is rejected with a constraint violation error
+
+Scenario: consent_log document_version is written for legal events
+  Given a successful adult signup
+  When the consent_log rows for 'tos_accepted' and 'privacy_policy_accepted' are read
+  Then both rows have document_version = '1.0'
+  And the 'age_verified_adult' row has document_version = NULL
+
+Scenario: mastery_data initializes as empty object on subject insert
+  Given a student selects AP Chemistry during onboarding
+  When the student_subjects row is created
+  Then mastery_data = '{}'
+  And no error is thrown on insert
 ```
 
 ### Implementation Notes
@@ -188,6 +210,7 @@ Scenario: consent_log event_type constraint is enforced
 - All migrations must be version-controlled under `supabase/migrations/`
 - Migration file naming: `YYYYMMDDHHMMSS_description.sql`
 - Staging and production must be separate Supabase projects — never share a database
+- `document_version` must be passed explicitly as `"1.0"` for `tos_accepted` and `privacy_policy_accepted` events. It is NOT a DB default — the API route is responsible for setting it.
 
 ---
 
@@ -367,14 +390,16 @@ Scenario: Timeout is enforced per route
 
 ## T1.4 — Authentication System Implementation
 
-> **Updated 2026-04-26:** State machine corrected to use `students` table and actual `account_status` values. Consent token expiry corrected to 7 days (matching S1-F-09). Email provider is Resend (RESEND_API_KEY set in Vercel). Added scenarios for S1-F-04 (email verification), S1-F-07 (session expiry), and S1-F-10 (password reset).
+> **Updated 2026-04-26 (Session 3):** State machine corrected to use `students` table and actual `account_status` values. Consent token expiry corrected to 7 days. Email verification + forgot password scenarios added.
+>
+> **Gap Fix — Session 4 (2026-04-26):** `consent_log.document_version` convention documented. Sprint 1 hardcodes `"1.0"` for `tos_accepted` and `privacy_policy_accepted` events. All other event types write `NULL`. See T1.1 schema notes for full convention.
 
 **As a** backend engineer,
 **I need** email/password authentication with an age-gate flow, email verification, parental consent email delivery, and password recovery,
 **So that** the app is FERPA-compliant and fully functional for auth before Sprint 2.
 
 **Covers:** S1-F-01, S1-F-03, S1-F-04, S1-F-09, S1-F-10
-**Does NOT cover:** S1-F-02 (Google OAuth — separate story T1.4b, Sprint 1 not started), S1-F-07 (session persistence — T1.9)
+**Does NOT cover:** S1-F-02 (Google OAuth — see T1.4b below, descoped to Sprint 2), S1-F-07 (session persistence — T1.9)
 
 ### Auth Flow State Machine
 
@@ -383,16 +408,18 @@ Scenario: Timeout is enforced per route
     → validate fields (Zod schema)
     → supabase.auth.admin.createUser()
     → insert students row (service role)
-    → insert consent_log rows: 'tos_accepted', 'privacy_policy_accepted'
+    → insert consent_log rows:
+        'tos_accepted'           { document_version: '1.0' }
+        'privacy_policy_accepted' { document_version: '1.0' }
     → compute age from dob
     → if age >= 18:
         → update students.account_status = 'active'
-        → insert consent_log: 'age_verified_adult'
-        → supabase.auth.admin.generateLink({ type: 'signup' })  ← verification link generated, NOT sent yet (Resend not wired — S1-F-04)
+        → insert consent_log: 'age_verified_adult'  { document_version: NULL }
+        → supabase.auth.admin.generateLink({ type: 'signup' })  ← link generated, NOT sent (Resend wired in S1-F-04)
         → redirect to /verify-email
     → if age < 18:
         → update students.account_status = 'pending_age_check'
-        → redirect to /onboarding/consent  ← student enters parent email here
+        → redirect to /onboarding/consent  ← student enters parent email here (T1.12)
     → on any failure: rollback (delete auth user if students insert fails)
 
 [POST /api/auth/consent/send]
@@ -400,28 +427,28 @@ Scenario: Timeout is enforced per route
     → generate signed JWT: { student_id, parent_email, exp: now + 7 days }
     → send consent email via Resend to parent_email
     → update students.account_status = 'pending_consent'
-    → insert consent_log: 'consent_email_sent'
+    → insert consent_log: 'consent_email_sent'  { document_version: NULL }
 
 [GET /api/auth/consent/approve?token=X]
     → verify JWT signature + expiry
     → if expired → redirect to /auth/consent-expired
     → if already actioned → redirect to /auth/consent-already-actioned
     → update students.account_status = 'active'
-    → insert consent_log: 'consent_granted'
+    → insert consent_log: 'consent_granted'  { document_version: NULL }
     → send confirmation email to student via Resend
 
 [GET /api/auth/consent/deny?token=X]
     → verify JWT signature + expiry
     → update students.account_status = 'declined'
-    → insert consent_log: 'consent_denied'
+    → insert consent_log: 'consent_denied'  { document_version: NULL }
     → delete auth.users record (FERPA — no data retained without consent)
 
 [POST /api/auth/verify-email]
     → Supabase handles OTP/link verification natively
     → on verified: update students.email_verified = true
-    → redirect: if account_status = 'active' → /onboarding/subjects
+    → redirect: if account_status = 'active'           → /onboarding/subjects
                if account_status = 'pending_age_check' → /onboarding/consent
-               if account_status = 'pending_consent' → /onboarding/awaiting-consent
+               if account_status = 'pending_consent'   → /onboarding/awaiting-consent
 
 [POST /api/auth/forgot-password]
     → accept email input
@@ -462,18 +489,15 @@ Privacy Policy: https://aceos-ai.vercel.app/legal/privacy-policy
 ### Consent JWT Specification
 
 ```typescript
-// Payload
 interface ConsentTokenPayload {
   student_id: string;   // UUID
   parent_email: string;
   iat: number;          // issued at (Unix seconds)
   exp: number;          // iat + 7 * 24 * 60 * 60
 }
-
-// Signing
 // Algorithm: HS256
-// Secret: SUPABASE_SERVICE_ROLE_KEY (server-side only, never exposed)
-// Library: jose (already in Next.js ecosystem)
+// Secret: SUPABASE_SERVICE_ROLE_KEY
+// Library: jose
 ```
 
 ### API Route File Map
@@ -481,6 +505,7 @@ interface ConsentTokenPayload {
 ```
 app/api/auth/signup/route.ts           — POST signup handler
 app/api/auth/signin/route.ts           — POST signin handler
+app/api/auth/signout/route.ts          — POST signout handler (see T1.9)
 app/api/auth/consent/send/route.ts     — POST send parental consent email
 app/api/auth/consent/approve/route.ts  — GET approve consent token
 app/api/auth/consent/deny/route.ts     — GET deny consent token
@@ -498,7 +523,9 @@ Scenario: Adult signup creates correct DB state
   Given a user submits signup with dob 20 years ago
   When POST /api/auth/signup succeeds
   Then students.account_status = 'active'
-  And consent_log contains 'tos_accepted', 'privacy_policy_accepted', 'age_verified_adult'
+  And consent_log contains 'tos_accepted' with document_version = '1.0'
+  And consent_log contains 'privacy_policy_accepted' with document_version = '1.0'
+  And consent_log contains 'age_verified_adult' with document_version = NULL
   And the user is redirected to /verify-email
 
 Scenario: Minor signup creates correct DB state
@@ -600,15 +627,128 @@ Scenario: Successful reset redirects to signin
 ```
 
 ### Implementation Notes
-- Consent JWT signed with `jose` library using `SUPABASE_SERVICE_ROLE_KEY` as HS256 secret
+- Consent JWT signed with `jose` using `SUPABASE_SERVICE_ROLE_KEY` as HS256 secret
+- `document_version: '1.0'` must be passed explicitly for `tos_accepted` and `privacy_policy_accepted` inserts — it is NOT a DB default
 - Never use anon key to sign tokens
-- All Resend calls must be server-side only (API routes) — never call Resend from client components
-- Password reset uses Supabase's native `resetPasswordForEmail` — do not implement custom token logic
-- The delete-on-deny operation must use service role client, never anon client
+- All Resend calls must be server-side only
+- Password reset uses Supabase native `resetPasswordForEmail` — do not implement custom token logic
+- The delete-on-deny operation must use service role client
+
+---
+
+## T1.4b — Google OAuth Sign-Up & Sign-In ⏸ DESCOPED TO SPRINT 2
+
+> **Status:** Technical story written in Session 4. Implementation descoped to Sprint 2 due to external dependency (Google Cloud OAuth project creation). **Calendar action required before Sprint 2 begins:** Create Google Cloud project, configure OAuth 2.0 consent screen, obtain client ID + secret, register redirect URI in Supabase.
+
+**As a** backend/frontend engineer,
+**I need** Google OAuth sign-in and sign-up integrated via Supabase Auth,
+**So that** students can create and access their account with one click using their Google account.
+
+**Covers:** S1-F-02
+
+### Pre-Implementation Checklist (do BEFORE writing code)
+
+```
+☐ Create Google Cloud project at console.cloud.google.com
+☐ Enable Google+ API / People API
+☐ OAuth consent screen: set app name "AceOS", user type "External", add scopes: email, profile
+☐ Create OAuth 2.0 Client ID → type: Web Application
+☐ Authorized redirect URI: https://olybgkhggqnmrfcjjojy.supabase.co/auth/v1/callback
+☐ Copy Client ID + Client Secret → add to Supabase Dashboard → Auth → Providers → Google
+☐ Enable Google provider in Supabase Dashboard
+☐ Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to Vercel env vars (for reference/audit only — Supabase handles the OAuth flow)
+```
+
+### OAuth Flow Architecture
+
+```
+[Client: /signup or /signin page]
+    → user clicks "Continue with Google"
+    → supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: NEXT_PUBLIC_APP_URL + '/auth/callback' } })
+    → browser redirects to Google consent screen
+    → Google redirects to Supabase callback URL
+    → Supabase creates/updates auth.users entry
+    → Supabase redirects to /auth/callback
+
+[GET /auth/callback — Next.js route handler]
+    → exchange code for session: supabase.auth.exchangeCodeForSession(code)
+    → check if students row exists for this user id
+    → if NO (new OAuth user):
+        → check if age can be determined from Google profile (usually cannot — Google doesn't return DOB)
+        → redirect to /onboarding/complete-profile  ← student provides first_name, last_name, dob
+    → if YES (returning OAuth user):
+        → check onboarding_completed
+        → if false → /onboarding/subjects
+        → if true  → /dashboard
+
+[POST /api/auth/oauth/complete-profile]
+    → accepts { first_name, last_name, dob }
+    → inserts students row (service role)
+    → inserts consent_log rows: 'tos_accepted', 'privacy_policy_accepted' (document_version: '1.0')
+    → runs age check → same state machine as email signup
+    → redirects to /verify-email (adults) or /onboarding/consent (minors)
+```
+
+### Page & Route Map
+
+```
+app/
+  auth/
+    callback/
+      route.ts                    — GET: exchanges OAuth code for session, routes new vs returning users
+  onboarding/
+    complete-profile/
+      page.tsx                    — form for first_name, last_name, dob (OAuth new users only)
+  api/
+    auth/
+      oauth/
+        complete-profile/
+          route.ts                — POST: inserts students row, runs age gate
+```
+
+### Acceptance Criteria
+
+```gherkin
+Scenario: New Google user is routed to complete-profile
+  Given a user who has never signed up to AceOS
+  When they sign in with Google and are redirected to /auth/callback
+  Then no students row exists for their uid
+  And they are redirected to /onboarding/complete-profile
+
+Scenario: Returning Google user with completed onboarding goes to dashboard
+  Given a user with a students row and onboarding_completed = true
+  When they sign in with Google
+  Then they are redirected to /dashboard
+
+Scenario: OAuth complete-profile follows same age gate as email signup
+  Given a new Google user submits dob = 15 years ago
+  When POST /api/auth/oauth/complete-profile is called
+  Then students.account_status = 'pending_age_check'
+  And they are redirected to /onboarding/consent
+
+Scenario: Google sign-in button is present on signin and signup pages
+  Given an unauthenticated user on /signin or /signup
+  Then a "Continue with Google" button is visible
+  And clicking it initiates the OAuth flow
+
+Scenario: OAuth callback handles missing code gracefully
+  Given /auth/callback is accessed without a code param
+  Then the user is redirected to /signin
+  And an error message: "Authentication failed. Please try again." is shown
+```
+
+### Implementation Notes
+- Google does not return DOB in the OAuth profile — always route new Google users through `/onboarding/complete-profile` to collect it
+- The ToS/Privacy checkbox must be shown on the complete-profile form (same consent requirement as email signup)
+- Do not store the Google OAuth `access_token` — Supabase handles token management
+- Supabase handles PKCE automatically when using `signInWithOAuth` — no custom PKCE implementation needed
+- Use `@supabase/ssr` `createServerClient` in `/auth/callback/route.ts` (not browser client)
 
 ---
 
 ## T1.5 — Subject Selection Screen Implementation
+
+> **Gap Fix — Session 4 (2026-04-26):** Max subjects corrected to 4 everywhere. Previous version had an inconsistency — server action comment said max 6, Gherkin said max 6, functional story S1-F-05 says max 4. Functional story wins. All references now say 4.
 
 **As a** frontend engineer,
 **I need** the subject selection screen to display the 6 Phase 1 AP subjects and persist selections to the database,
@@ -621,12 +761,12 @@ Scenario: Successful reset redirects to signin
 ```typescript
 // config/subjects.ts
 export const PHASE_1_SUBJECTS = [
-  { code: 'AP_CHEM',        name: 'AP Chemistry',                        type: 'VISUAL', units: 9,  exam_date_2026: '2026-05-04', icon: '🧪' },
-  { code: 'AP_BIO',         name: 'AP Biology',                          type: 'VISUAL', units: 8,  exam_date_2026: '2026-05-08', icon: '🧬' },
-  { code: 'AP_CALC_AB',     name: 'AP Calculus AB',                      type: 'VISUAL', units: 10, exam_date_2026: '2026-05-04', icon: '∫'  },
-  { code: 'AP_USHISTORY',   name: 'AP US History',                       type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-07', icon: '🇺🇸' },
-  { code: 'AP_WORLDHISTORY',name: 'AP World History',                    type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-14', icon: '🌍' },
-  { code: 'AP_LANG',        name: 'AP English Language & Composition',   type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-13', icon: '✍️' },
+  { code: 'AP_CHEM',         name: 'AP Chemistry',                       type: 'VISUAL', units: 9,  exam_date_2026: '2026-05-04', icon: '🧪' },
+  { code: 'AP_BIO',          name: 'AP Biology',                         type: 'VISUAL', units: 8,  exam_date_2026: '2026-05-08', icon: '🧬' },
+  { code: 'AP_CALC_AB',      name: 'AP Calculus AB',                     type: 'VISUAL', units: 10, exam_date_2026: '2026-05-04', icon: '∫'  },
+  { code: 'AP_USHISTORY',    name: 'AP US History',                      type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-07', icon: '🇺🇸' },
+  { code: 'AP_WORLDHISTORY', name: 'AP World History',                   type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-14', icon: '🌍' },
+  { code: 'AP_LANG',         name: 'AP English Language & Composition',  type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-13', icon: '✍️' },
 ] as const;
 ```
 
@@ -640,8 +780,8 @@ export async function saveSubjectSelections(
   studentId: string,
   selections: { subjectCode: string; examDate: string }[]
 ): Promise<{ success: boolean; error?: string }> {
-  // 1. Validate: min 1, max 4 subjects (functional spec cap is 4, not 6)
-  // 2. Upsert student_subjects records
+  // 1. Validate: min 1, max 4 subjects  ← CAP IS 4, NOT 6
+  // 2. Upsert student_subjects records (with mastery_data: {})
   // 3. Update students.onboarding_completed = true
   // 4. Return success or structured error
 }
@@ -669,9 +809,10 @@ Scenario: Maximum 4 subjects enforced
   Then the 5th subject card does not toggle to selected
   And a message appears: "You can add more subjects later from your dashboard"
 
-Scenario: Subject rows created in database
+Scenario: Subject rows created in database with mastery_data initialized
   Given a student selects AP Chemistry and AP US History and clicks Continue
   Then 2 rows exist in student_subjects with correct student_id and subject_code values
+  And each row has mastery_data = '{}'
   And students.onboarding_completed = true
   And the student is redirected to /dashboard
 
@@ -735,11 +876,9 @@ Scenario: Legal pages render correctly on mobile
 
 ## T1.7 — Profile Auto-Creation Trigger ⛔ SUPERSEDED
 
-> **Decision made 2026-04-26:** This story is superseded. The DB trigger approach was not implemented. Instead, the `students` row is created manually in the signup API route (`app/api/auth/signup/route.ts`) using the service role client. This is intentional — the manual insert approach is simpler, fully testable in unit tests without mocking Postgres triggers, and easier to roll back on failure.
+> **Decision made 2026-04-26:** This story is superseded. The `students` row is created manually in the signup API route using the service role client. Do not implement.
 >
-> **Kept for audit trail only. Do not implement.**
->
-> If a trigger is ever added in future, the API route insert must be removed first to prevent double-insert. The `ON CONFLICT DO NOTHING` clause in the old trigger spec would have silently masked this bug.
+> **Kept for audit trail only.**
 
 ---
 
@@ -754,25 +893,22 @@ Scenario: Legal pages render correctly on mobile
 ### Error State Specification
 
 ```typescript
-// components/ErrorBoundary.tsx
-// Class component — catches unhandled render errors
-// Props: children, fallback (optional custom fallback UI)
-// On error: shows "Something went wrong" message + "Reload page" button
+// components/ErrorBoundary.tsx — class component
+// On error: shows "Something went wrong" + "Reload page" button
 // Reports to console.error (Sentry integration Sprint 2+)
 
-// Standardised error response shape from all API routes:
 interface ApiError {
-  error: string;        // machine-readable error code e.g. 'EMAIL_ALREADY_EXISTS'
-  message: string;      // human-readable message safe to display
-  status: number;       // HTTP status code
+  error: string;    // machine-readable SCREAMING_SNAKE_CASE code
+  message: string;  // human-readable, safe to display
+  status: number;   // HTTP status
 }
 
-// Error messages by scenario:
-// Network offline      → "You're offline. Check your connection and try again."
-// Auth failure         → "Sign in failed. Please try again."
-// Server action error  → "Something went wrong. Your data has not been saved."
-// Timeout              → "This is taking longer than expected. Please try again."
-// Duplicate email      → "An account with this email already exists. Sign in instead?"
+// Error messages:
+// Network offline    → "You're offline. Check your connection and try again."
+// Auth failure       → "Sign in failed. Please try again."
+// Server action err  → "Something went wrong. Your data has not been saved."
+// Timeout            → "This is taking longer than expected. Please try again."
+// Duplicate email    → "An account with this email already exists. Sign in instead?"
 ```
 
 ### Acceptance Criteria
@@ -782,55 +918,62 @@ Scenario: Auth failure shows user-friendly message
   Given Supabase returns a 500 error during sign-in
   When the user submits the sign-in form
   Then "Sign in failed. Please try again." is displayed
-  And the raw Supabase error is never shown to the user
+  And the raw Supabase error is never shown
 
 Scenario: Offline state is communicated
   Given the user's device is offline
   When they submit the signup form
   Then "You're offline. Check your connection and try again." is shown
-  And the form fields retain their current values
+  And the form fields retain their values
 
 Scenario: Error boundary catches render crash
-  Given any child component throws an unhandled error during render
+  Given any child component throws an unhandled error
   When the error boundary catches it
   Then a fallback UI is shown with a "Reload page" button
-  And no blank/white screen is shown
 
 Scenario: Loading states prevent double-submit
   Given a user submits the signup form
   When the server action is in flight
   Then the submit button is disabled and shows a loading spinner
-  And a second click on the button has no effect
+  And a second click has no effect
 
 Scenario: API error codes are machine-readable
   Given any API route returns an error
   Then the response body shape is { error: string, message: string, status: number }
-  And the error field is a SCREAMING_SNAKE_CASE code
-  And the message field is safe to display directly in the UI
+  And the error field is SCREAMING_SNAKE_CASE
 ```
 
 ---
 
 ## T1.9 — Session Management & Sign-Out
 
+> **Gap Fix — Session 4 (2026-04-26):** Added redirect param validation guard. The middleware must validate the `redirect` param before following it. Specifically: never redirect to `/onboarding/*` if the student's `onboarding_completed = true`. This prevents a redirect loop where a student with completed onboarding is bounced back into the onboarding flow after session expiry.
+
 **As a** backend/frontend engineer,
 **I need** Supabase session persistence across page refreshes and browser tabs, middleware-based route protection, and a working sign-out flow,
-**So that** authenticated students stay logged in without interruption and unauthenticated users are always redirected to sign-in.
+**So that** authenticated students stay logged in without interruption.
 
 **Covers:** S1-F-07
 
 ### Session Architecture
 
-Supabase Auth uses `@supabase/ssr` to store the session in HTTP-only cookies. The session cookie is set server-side on signin and refreshed automatically by middleware on every request.
+Supabase Auth uses `@supabase/ssr` to store the session in HTTP-only cookies. Session is refreshed automatically by middleware on every request.
 
 ```typescript
-// middleware.ts — runs on every request
+// middleware.ts
 // Responsibilities:
-// 1. Call supabase.auth.getUser() to validate the session cookie
-// 2. Refresh the session token if it's within the refresh window
+// 1. Call supabase.auth.getUser() to validate session cookie
+// 2. Refresh session token if near expiry
 // 3. Redirect unauthenticated users from protected routes to /signin?redirect=<originalPath>
 // 4. Redirect authenticated users away from /signin and /signup to /dashboard
-// 5. Allow all PUBLIC_PATHS without auth check
+// 5. Allow PUBLIC_PATHS without auth check
+// 6. REDIRECT PARAM VALIDATION GUARD:
+//    After successful re-auth, before following redirect param:
+//    → fetch student.onboarding_completed
+//    → if redirect targets /onboarding/* AND onboarding_completed = true
+//    → override redirect to /dashboard
+//    This prevents a stale redirect loop for students who complete onboarding
+//    in a different session.
 
 const PUBLIC_PATHS = [
   '/signin',
@@ -839,8 +982,8 @@ const PUBLIC_PATHS = [
   '/forgot-password',
   '/reset-password',
   '/legal',
-  '/auth',       // covers /auth/consent-expired, /auth/consent-already-actioned
-  '/api/auth',   // covers all /api/auth/* routes
+  '/auth',
+  '/api/auth',
   '/_next',
   '/favicon.ico',
 ];
@@ -849,28 +992,13 @@ const PUBLIC_PATHS = [
 ### Sign-Out Flow
 
 ```typescript
-// app/api/auth/signout/route.ts  — POST
-// 1. Call supabase.auth.signOut() server-side
+// app/api/auth/signout/route.ts — POST
+// 1. supabase.auth.signOut() server-side
 // 2. Clear session cookie
-// 3. Return redirect to /signin
+// 3. Redirect to /signin
 
 // app/components/SignOutButton.tsx — client component
-// Calls POST /api/auth/signout on click
-// Shows loading state during request
-// On response: router.push('/signin')
-```
-
-### Expired Session Handling
-
-```typescript
-// middleware.ts
-// If getUser() returns null on a protected route:
-//   → redirect to /signin?redirect=<encodedOriginalPath>
-//
-// app/signin/page.tsx
-// On mount: if searchParams.redirect exists → show banner
-//   "Your session has expired. Please sign in again."
-// After successful signin: router.push(redirect) or '/dashboard'
+// POST /api/auth/signout → router.push('/signin')
 ```
 
 ### Acceptance Criteria
@@ -880,13 +1008,7 @@ Scenario: Session persists after browser refresh
   Given a student is signed in
   When they refresh the browser
   Then they remain signed in
-  And the dashboard loads correctly without redirecting to /signin
-
-Scenario: Session persists across tabs
-  Given a student is signed in on one tab
-  When they open a new tab and navigate to https://aceos-ai.vercel.app/dashboard
-  Then they are automatically signed in
-  And the dashboard loads without re-authentication
+  And the dashboard loads correctly
 
 Scenario: Sign-out clears session and redirects
   Given a signed-in student who clicks Sign Out
@@ -896,17 +1018,18 @@ Scenario: Sign-out clears session and redirects
   And navigating to /dashboard redirects back to /signin
 
 Scenario: Expired session redirects with message
-  Given a student whose session token has expired
+  Given a student whose session has expired
   When they navigate to /dashboard
   Then they are redirected to /signin?redirect=%2Fdashboard
   And the signin page shows "Your session has expired. Please sign in again."
-  And after signing in successfully they are redirected to /dashboard
+  And after signing in they are redirected to /dashboard
 
-Scenario: Unauthenticated user is blocked from protected routes
-  Given an unauthenticated user
-  When they navigate to /dashboard, /onboarding/subjects, or /profile
-  Then they are redirected to /signin
-  And the redirect param preserves the original path
+Scenario: Redirect guard prevents onboarding loop
+  Given a student with onboarding_completed = true whose session expired on /onboarding/subjects
+  When they sign in again
+  Then the redirect param /onboarding/subjects is detected
+  And they are redirected to /dashboard instead
+  And they are NOT sent to /onboarding/subjects
 
 Scenario: Public paths are accessible without auth
   Given an unauthenticated user
@@ -917,24 +1040,19 @@ Scenario: Authenticated user is redirected away from /signin and /signup
   Given a signed-in student
   When they navigate directly to /signin or /signup
   Then they are redirected to /dashboard
-
-Scenario: Middleware refreshes session token transparently
-  Given a student with a session token near expiry
-  When they make any request to the app
-  Then the middleware refreshes the token
-  And no sign-in prompt is shown to the student
 ```
 
 ### Implementation Notes
-- Use `@supabase/ssr` package — NOT `@supabase/auth-helpers-nextjs` (deprecated)
-- Create two Supabase client helpers: `lib/supabase/server.ts` (server components + API routes) and `lib/supabase/client.ts` (client components)
-- Session cookie must be HTTP-only and Secure in production
-- The `redirect` query param must be URL-encoded before appending
-- Sign-out must be server-side (API route) — never call `supabase.auth.signOut()` from a client component directly as it doesn't clear the server cookie
+- Use `@supabase/ssr` — NOT `@supabase/auth-helpers-nextjs` (deprecated)
+- Create `lib/supabase/server.ts` and `lib/supabase/client.ts`
+- The `redirect` query param must be URL-encoded
+- Sign-out must be server-side — never call `supabase.auth.signOut()` from a client component directly
 
 ---
 
 ## T1.10 — Student Dashboard Shell
+
+> **Gap Fix — Session 4 (2026-04-26):** NavBar placement clarified. NavBar must be rendered inside a `(protected)` route group layout, NOT the root `app/layout.tsx`. This prevents NavBar from rendering on unauthenticated pages (/signin, /signup, etc.). See architecture note below.
 
 **As a** frontend engineer,
 **I need** the `/dashboard` page to display the student's enrolled AP subjects, a welcome message, and a persistent navigation bar,
@@ -942,98 +1060,109 @@ Scenario: Middleware refreshes session token transparently
 
 **Covers:** S1-F-06
 
-### Page Architecture
+### Route Group Architecture
 
 ```
 app/
-  dashboard/
-    page.tsx           — server component, fetches student + subject data
-    loading.tsx        — skeleton loading state
-  components/
-    nav/
-      NavBar.tsx       — persistent nav, client component
+  (public)/                     ← unauthenticated pages — NO NavBar
+    signin/page.tsx
+    signup/page.tsx
+    forgot-password/page.tsx
+    reset-password/page.tsx
+    verify-email/page.tsx
+  (protected)/                  ← authenticated pages — NavBar rendered here
+    layout.tsx                  ← renders NavBar + checks session
     dashboard/
-      SubjectCard.tsx  — displays one enrolled subject
-      EmptySubjects.tsx — empty state when no subjects enrolled
+      page.tsx
+      loading.tsx
+    onboarding/
+      subjects/page.tsx
+      consent/page.tsx          ← see T1.12
+      awaiting-consent/page.tsx ← see T1.12
+      complete-profile/page.tsx ← OAuth only, see T1.4b
+    profile/
+      page.tsx                  ← Sprint 2+
+  legal/
+    privacy-policy/page.tsx     ← no auth required
+    terms-of-service/page.tsx   ← no auth required
+  auth/
+    consent-expired/page.tsx        ← see T1.12
+    consent-already-actioned/page.tsx ← see T1.12
+  components/
+    nav/NavBar.tsx
+    dashboard/
+      SubjectCard.tsx
+      EmptySubjects.tsx
+```
+
+### (protected)/layout.tsx Specification
+
+```typescript
+// app/(protected)/layout.tsx — server component
+// 1. Get session via supabase server client
+// 2. If no session → redirect to /signin (middleware should handle this first, but double-check)
+// 3. Render NavBar + {children}
+
+export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/signin');
+  return (
+    <div>
+      <NavBar />
+      <main>{children}</main>
+    </div>
+  );
+}
 ```
 
 ### Data Fetching
 
 ```typescript
-// app/dashboard/page.tsx — server component
-// 1. Get session via supabase server client → if null, middleware handles redirect
-// 2. Fetch students row: id, first_name, account_status, onboarding_completed
-// 3. If onboarding_completed = false → redirect to /onboarding/subjects
-// 4. Fetch student_subjects rows for this student
-// 5. Render dashboard with student data + subject list
-
-interface DashboardPageProps {
-  student: {
-    id: string;
-    first_name: string;
-    account_status: string;
-  };
-  subjects: {
-    id: string;
-    subject_code: string;
-    subject_name: string;
-    exam_date: string | null;
-  }[];
-}
+// app/(protected)/dashboard/page.tsx — server component
+// 1. Fetch students row: id, first_name, account_status, onboarding_completed
+// 2. If onboarding_completed = false → redirect to /onboarding/subjects
+// 3. Fetch student_subjects rows
+// 4. Render dashboard
 ```
 
-### Subject Card Specification
+### NavBar Specification
 
 ```
-SubjectCard component:
-  - Subject name (e.g. "AP Chemistry")
-  - Subject icon from PHASE_1_SUBJECTS config
-  - Status badge: "Diagnostic not yet taken" (Sprint 1 only)
-  - Exam date if set (formatted: "May 4, 2026")
-  - CTA button: "Start Diagnostic" → disabled with tooltip "Coming soon" in Sprint 1
-```
-
-### Navigation Bar Specification
-
-```
-NavBar component (visible on ALL authenticated pages):
-  Links:
-    - Dashboard    → /dashboard
-    - Practice     → /practice    (disabled in Sprint 1, "Coming soon" tooltip)
-    - FRQ          → /frq         (disabled in Sprint 1, "Coming soon" tooltip)
-    - Profile      → /profile     (disabled in Sprint 1, "Coming soon" tooltip)
-  Also contains:
-    - AceOS logo (top-left)
-    - Sign Out button (bottom or top-right)
-  Behaviour:
-    - Active link is visually highlighted
-    - Mobile: collapses to bottom tab bar or hamburger menu
+NavBar (visible on ALL (protected) pages):
+  Links: Dashboard → /dashboard
+         Practice  → /practice  (disabled Sprint 1, "Coming soon" tooltip)
+         FRQ       → /frq       (disabled Sprint 1, "Coming soon" tooltip)
+         Profile   → /profile   (disabled Sprint 1, "Coming soon" tooltip)
+  Also:  AceOS logo (top-left) | Sign Out button
+  Behaviour: active link highlighted | mobile: bottom tab bar or hamburger
 ```
 
 ### Acceptance Criteria
 
 ```gherkin
+Scenario: NavBar does NOT appear on unauthenticated pages
+  Given an unauthenticated user on /signin, /signup, or /forgot-password
+  Then the NavBar component is not rendered
+  And no navigation links are visible
+
+Scenario: NavBar appears on all (protected) pages
+  Given a signed-in student on /dashboard
+  Then the NavBar is visible
+  Given the same student navigates to /onboarding/subjects
+  Then the NavBar is still visible
+
 Scenario: Dashboard shows correct enrolled subjects
-  Given a student who selected AP Chemistry and AP US History during onboarding
+  Given a student who selected AP Chemistry and AP US History
   When they reach /dashboard
   Then exactly 2 subject cards are displayed
-  And each card shows the subject name and "Diagnostic not yet taken"
-  And the Start Diagnostic button is present but disabled with "Coming soon"
+  And each shows subject name and "Diagnostic not yet taken"
+  And the Start Diagnostic button is disabled with "Coming soon"
 
 Scenario: Welcome message uses student first name
   Given a student with first_name = "Maria"
   When the dashboard loads
-  Then the page contains "Welcome back, Maria" or "Hi, Maria" (exact copy TBD)
-
-Scenario: Dashboard is protected
-  Given an unauthenticated user
-  When they navigate to /dashboard
-  Then middleware redirects them to /signin
-
-Scenario: Navigation bar is visible on all authenticated pages
-  Given a signed-in student on /dashboard
-  Then the NavBar is visible with Dashboard, Practice, FRQ, and Profile links
-  And the Dashboard link is in active/highlighted state
+  Then the page contains "Welcome back, Maria" or "Hi, Maria"
 
 Scenario: Incomplete onboarding redirects to subject selection
   Given a student with onboarding_completed = false
@@ -1041,74 +1170,46 @@ Scenario: Incomplete onboarding redirects to subject selection
   Then they are redirected to /onboarding/subjects
 
 Scenario: Empty subjects edge case is handled
-  Given a student with onboarding_completed = true but 0 rows in student_subjects
+  Given onboarding_completed = true but 0 rows in student_subjects
   When the dashboard loads
-  Then the EmptySubjects component is rendered
-  And it shows "Add an AP subject to get started" with a link to /onboarding/subjects
-
-Scenario: Dashboard loading skeleton is shown
-  Given the dashboard data fetch is in progress
-  When the page is rendering
-  Then a skeleton loading state is shown (not a blank page or spinner only)
+  Then EmptySubjects component renders with "Add an AP subject to get started"
 
 Scenario: Dashboard data is fetched server-side
-  Given the dashboard page
   When inspecting the page HTML before client JS executes
-  Then subject names and the welcome message are present in the initial HTML
-  And no client-side fetch waterfall is required for the primary content
+  Then subject names and welcome message are in the initial HTML
 ```
 
 ### Implementation Notes
-- `dashboard/page.tsx` must be a server component — data fetching happens server-side for SEO and performance
-- `NavBar.tsx` must be a client component (needs `usePathname` for active link highlighting)
-- NavBar should be rendered in `app/layout.tsx` inside an auth check, not inside the dashboard page itself — so it appears on all protected pages without repeating the import
-- Loading skeleton must match the final layout dimensions to prevent layout shift
-- `SubjectCard` is a server component — no interactivity needed in Sprint 1
+- `(protected)/layout.tsx` is the ONLY place NavBar is imported. Never import NavBar inside individual page files.
+- `NavBar.tsx` must be a client component (needs `usePathname` for active link)
+- Dashboard page must be a server component
+- Loading skeleton must match final layout to prevent layout shift
 
 ---
 
 ## T1.11 — Account Recovery (Forgot Password)
 
 **As a** backend/frontend engineer,
-**I need** a complete forgot password and password reset flow using Supabase's native reset mechanism and Resend for email delivery,
-**So that** students can regain access to their account without contacting support.
+**I need** a complete forgot password and password reset flow,
+**So that** students can regain access without contacting support.
 
-**Covers:** S1-F-10
+**Covers:** S1-F-10 (P1 — implement if time permits after P0 stories are done)
 
 ### Page & Route Map
 
 ```
 app/
-  forgot-password/
-    page.tsx                   — email input form (unauthenticated)
-  reset-password/
-    page.tsx                   — new password form (accessed via magic link)
-  api/
-    auth/
-      forgot-password/
-        route.ts               — POST: triggers Supabase resetPasswordForEmail
-      reset-password/
-        route.ts               — POST: calls supabase.auth.updateUser({ password })
+  (public)/
+    forgot-password/page.tsx    — email input form
+    reset-password/page.tsx     — new password form (client component — needs URL hash)
+  api/auth/
+    forgot-password/route.ts   — POST: triggers Supabase resetPasswordForEmail
+    reset-password/route.ts    — POST: calls supabase.auth.updateUser
 ```
 
-### Forgot Password Flow
+### Zod Schema
 
 ```typescript
-// POST /api/auth/forgot-password
-// Input: { email: string }
-// Always returns: { message: "If an account exists, we've sent a reset link" } + HTTP 200
-// If email exists in auth.users:
-//   → supabase.auth.resetPasswordForEmail(email, {
-//       redirectTo: `${NEXT_PUBLIC_APP_URL}/reset-password`
-//     })
-// Supabase sends the reset email natively — no Resend call needed here
-// Reset link expires: 1 hour (Supabase default, configurable in Supabase dashboard)
-```
-
-### Password Reset Form Validation
-
-```typescript
-// Zod schema for new password
 const resetPasswordSchema = z.object({
   password: z
     .string()
@@ -1125,67 +1226,172 @@ const resetPasswordSchema = z.object({
 ### Acceptance Criteria
 
 ```gherkin
-Scenario: Forgot password page is accessible without auth
-  Given an unauthenticated user
-  When they navigate to /forgot-password
-  Then the page loads without redirect
-
 Scenario: Reset email sent without revealing account existence
   Given any email submitted to POST /api/auth/forgot-password
-  Then the response is always HTTP 200
-  And the body is always { message: "If an account exists, we've sent a reset link" }
-  And no information is revealed about whether the account exists
-
-Scenario: Valid email triggers Supabase reset email
-  Given a registered email address
-  When POST /api/auth/forgot-password is called
-  Then supabase.auth.resetPasswordForEmail is called with that email
-  And the redirectTo param is set to NEXT_PUBLIC_APP_URL + "/reset-password"
-
-Scenario: Reset link expires after 1 hour
-  Given a password reset link more than 1 hour old
-  When the student clicks it
-  Then they see: "This reset link has expired. Please request a new one."
-  And a link to /forgot-password is shown
+  Then HTTP 200 always
+  And body always { message: "If an account exists, we've sent a reset link" }
 
 Scenario: Password must meet strength requirements
-  Given a student on /reset-password
-  When they submit a password that is 6 characters long
-  Then "Password must be at least 8 characters" is shown inline
-  And supabase.auth.updateUser is NOT called
-
-  When they submit a password with no uppercase letter
-  Then "Password must contain at least one uppercase letter" is shown inline
-
-  When they submit a password with no number
-  Then "Password must contain at least one number" is shown inline
-
-Scenario: Passwords must match
-  Given a student enters password "Secure1!" and confirm password "Different1!"
-  When they submit
-  Then "Passwords don't match" is shown on the confirm password field
+  Given invalid password submissions (too short, no uppercase, no number)
+  Then specific inline error per failed rule
   And supabase.auth.updateUser is NOT called
 
 Scenario: Successful reset redirects to signin with banner
-  Given a student submits a valid new password
-  When POST /api/auth/reset-password succeeds
-  Then they are redirected to /signin
-  And the signin page shows a success banner: "Password updated. Please sign in."
+  Given valid new password submitted
+  Then redirect to /signin
+  And banner: "Password updated. Please sign in."
 
-Scenario: /forgot-password link is present on signin page
-  Given an unauthenticated user on /signin
-  Then a "Forgot password?" link is visible
-  And clicking it navigates to /forgot-password
+Scenario: /forgot-password link is on signin page
+  Given /signin page
+  Then "Forgot password?" link is visible and navigates to /forgot-password
 ```
 
 ### Implementation Notes
-- Password reset email is sent by Supabase natively — do NOT wire Resend for this flow
-- The reset session (magic link token) is handled by Supabase client SDK on the `/reset-password` page — call `supabase.auth.getSession()` on mount to extract the token from the URL hash before calling `updateUser`
-- `/reset-password` page must be a client component (needs access to URL hash fragment, which is not available server-side)
-- After successful password update, call `supabase.auth.signOut()` before redirecting to `/signin` to clear any stale session state
+- Reset email sent by Supabase natively — no Resend call for this flow
+- `/reset-password` must be a client component (URL hash not available server-side)
+- After successful password update, call `supabase.auth.signOut()` before redirecting to `/signin`
+
+---
+
+## T1.12 — Onboarding Flow UI Pages ⚡ NEW
+
+> **Added Session 4 (2026-04-26):** Gap identified in agent review. The API routes for the consent flow (T1.4) redirect to several onboarding/auth pages that were never specced as UI stories. These pages are all required before S1-F-03 and S1-F-04 can be marked done.
+
+**As a** frontend engineer,
+**I need** all onboarding and consent-state UI pages to be built,
+**So that** every state in the auth flow has a real screen and no route returns 404.
+
+**Covers:** S1-F-03, S1-F-04 (UI layer only — API logic is in T1.4)
+
+### Pages Required
+
+| Route | Rendered In | Description |
+|---|---|---|
+| `/onboarding/consent` | `(protected)` | Minor student enters parent email. Form + submit. |
+| `/onboarding/awaiting-consent` | `(protected)` | Holding screen — "We've emailed your parent. Waiting for approval." Resend button. |
+| `/verify-email` | `(public)` | "Check your inbox" holding screen. Resend verification email button. |
+| `/auth/consent-expired` | `(public)` | Shown to parent when consent token is expired. Static info page. |
+| `/auth/consent-already-actioned` | `(public)` | Shown to parent when token was already used. Static info page. |
+
+### Page Specifications
+
+#### `/onboarding/consent` — Parent Email Form
+
+```typescript
+// Client component (needs form state)
+// Fields:
+//   parent_email: email input, required, Zod validated
+// On submit: POST /api/auth/consent/send
+// Success: redirect to /onboarding/awaiting-consent
+// Error states:
+//   - Invalid email format → inline: "Please enter a valid email address"
+//   - API error           → inline: "Something went wrong. Please try again."
+// Copy:
+//   Heading: "One more step"
+//   Body: "Because you're under 18, a parent or guardian needs to approve your account.
+//          Enter their email below and we'll send them a quick approval request."
+//   Submit button: "Send Approval Request"
+```
+
+#### `/onboarding/awaiting-consent` — Holding Screen
+
+```typescript
+// Server component
+// Fetch student row: get parent_email to display masked version (e.g. j***@gmail.com)
+// Copy:
+//   Heading: "Waiting for approval"
+//   Body: "We sent an approval request to [masked parent email].
+//          Once your parent approves, you'll be able to access AceOS."
+//   Resend button: POST /api/auth/consent/send → re-sends email, shows success toast
+//   "Wrong email?" link: navigates back to /onboarding/consent
+// Redirect guard: if student.account_status = 'active' → redirect to /onboarding/subjects
+```
+
+#### `/verify-email` — Email Verification Holding Screen
+
+```typescript
+// Client component (needs resend button interactivity)
+// Copy:
+//   Heading: "Check your inbox"
+//   Body: "We sent a verification link to [masked student email].
+//          Click the link in the email to continue."
+//   Resend button: calls supabase.auth.resend({ type: 'signup', email })
+//   Shows cooldown: button disabled for 60 seconds after resend
+// Redirect guard: if supabase.auth.onAuthStateChange fires with 'SIGNED_IN'
+//   → redirect to /onboarding/subjects (if account_status = 'active')
+```
+
+#### `/auth/consent-expired` — Expired Token (Static)
+
+```
+Heading: "This approval link has expired"
+Body: "Approval links are valid for 7 days.
+       [Student First Name] can log in and request a new one."
+CTA link: → /signin
+```
+
+#### `/auth/consent-already-actioned` — Already Used Token (Static)
+
+```
+Heading: "This link has already been used"
+Body: "You've already responded to this approval request.
+       If you have questions, contact us at support@aceos.app"
+CTA link: → /signin
+```
+
+### Acceptance Criteria
+
+```gherkin
+Scenario: Minor student submits parent email and is held on awaiting screen
+  Given a minor student on /onboarding/consent
+  When they submit a valid parent email
+  Then POST /api/auth/consent/send is called
+  And they are redirected to /onboarding/awaiting-consent
+  And the awaiting screen shows a masked version of the parent email
+
+Scenario: Invalid parent email shows inline error
+  Given a minor student on /onboarding/consent
+  When they submit "notanemail"
+  Then "Please enter a valid email address" is shown inline
+  And the API is NOT called
+
+Scenario: Resend button on awaiting-consent re-sends email
+  Given a student on /onboarding/awaiting-consent
+  When they click "Resend"
+  Then POST /api/auth/consent/send is called again
+  And a success toast: "Approval request resent" is shown
+
+Scenario: Student approved by parent is redirected from awaiting screen
+  Given a student on /onboarding/awaiting-consent
+  And their parent has approved (account_status = 'active')
+  When the page checks account_status
+  Then the student is redirected to /onboarding/subjects
+
+Scenario: verify-email resend respects 60-second cooldown
+  Given a student on /verify-email who clicks Resend
+  Then the Resend button is disabled for 60 seconds
+  And a countdown timer is shown
+
+Scenario: Expired consent link shows correct screen
+  Given a parent clicks an expired consent link
+  When they are redirected to /auth/consent-expired
+  Then the page shows "This approval link has expired"
+  And a link to /signin is present
+
+Scenario: Already-actioned consent link shows correct screen
+  Given a parent clicks a consent link that was already used
+  When they are redirected to /auth/consent-already-actioned
+  Then the page shows "This link has already been used"
+```
+
+### Implementation Notes
+- `/onboarding/consent` and `/onboarding/awaiting-consent` are inside `(protected)` route group — NavBar is visible
+- `/verify-email`, `/auth/consent-expired`, `/auth/consent-already-actioned` are public — no NavBar
+- The awaiting-consent page polls or uses `supabase.auth.onAuthStateChange` to detect when approval comes through — polling every 30s is acceptable for Sprint 1
+- Email masking: show first character + `***` + `@domain.com` — implement as a pure utility function in `lib/utils/mask-email.ts`
 
 ---
 
 *Sprint 1 Technical Stories | Epic 1: Foundation & Legal | AceOS v1.0*
-*Last updated: 2026-04-26 (Session 3) — Schema drift resolved. T1.7 superseded. T1.9, T1.10, T1.11 added.*
+*Last updated: 2026-04-26 (Session 4) — Gap fixes: T1.1 mastery_data, T1.4 doc_version, T1.4b Google OAuth stub, T1.5 max-4 fix, T1.9 redirect guard, T1.10 protected layout, T1.12 new onboarding UI pages.*
 *Test-Forward: Write Gherkin → Build automation suite → Implement → Verify*
