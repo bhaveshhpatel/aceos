@@ -3,7 +3,12 @@
  * S1-F-01 — Email Sign-Up
  *
  * Creates a Supabase Auth user, inserts the students row,
- * logs ToS + Privacy Policy consent, and triggers email verification.
+ * logs ToS + Privacy Policy consent, generates a verification link,
+ * and delivers it to the user via Resend.
+ *
+ * Email delivery is owned by S1-F-04. This route calls generateLink and
+ * passes properties.action_link to Resend. Supabase Auth email sending
+ * must be disabled in the dashboard (Auth → Settings) so only Resend delivers.
  *
  * Uses the service-role client so it can bypass RLS for the INSERT.
  * Never expose the service-role key to the browser.
@@ -16,6 +21,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
 import { signUpSchema } from '@/types/auth';
 import { getAgeFromDob } from '@/lib/utils';
 
@@ -25,6 +31,8 @@ function serviceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 }
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
 
 export async function POST(request: NextRequest) {
   try {
@@ -132,22 +140,53 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 5. Generate verification link — redirectTo is a neutral callback handler.
-    //    /auth/callback reads account_status from the DB and routes accordingly:
-    //      active             → /onboarding/subjects
-    //      pending_age_check  → /onboarding/consent
-    //    Product context is stored on the students row, NOT embedded in this link.
-    //    Embedding a product slug here would:
-    //      a) couple signup to product routing (SoC violation)
-    //      b) break all unverified emails if a product slug ever changes
-    //      c) require signup route changes every time a new product is added
-    await supabase.auth.admin.generateLink({
-      type:  'magiclink',
+    // 5. Generate verification link (S1-F-04 ownership).
+    //    type: 'signup' — generates an email verification link (sets email_confirmed_at on click).
+    //    NOT 'magiclink' — that generates a passwordless sign-in link and does NOT verify email.
+    //    /auth/callback reads account_status from DB and routes:
+    //      active            → /onboarding/subjects
+    //      pending_age_check → /onboarding/consent
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'signup',
       email,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       },
     });
+
+    if (linkError || !linkData?.properties?.action_link) {
+      // Rollback — user exists in auth but we cannot deliver the verification email
+      await supabase.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        { error: 'SIGNUP_FAILED', message: 'Something went wrong. Please try again.' },
+        { status: 500 }
+      );
+    }
+
+    // 6. Deliver verification email via Resend.
+    //    action_link is the full Supabase verification URL including the OTP token.
+    //    Supabase Auth email sending must be DISABLED in the dashboard so only this call sends.
+    const { error: emailError } = await resend.emails.send({
+      from:    'onboarding@resend.dev',
+      to:      email,
+      subject: 'Verify your AceOS email address',
+      html: `
+        <p>Hi ${first_name},</p>
+        <p>Thanks for signing up for AceOS. Click the link below to verify your email address.</p>
+        <p><a href="${linkData.properties.action_link}">Verify my email</a></p>
+        <p>This link expires in 24 hours.</p>
+        <p>If you didn't create an account, you can safely ignore this email.</p>
+      `,
+    });
+
+    if (emailError) {
+      // Rollback — verification link generated but email delivery failed
+      await supabase.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        { error: 'SIGNUP_FAILED', message: 'Something went wrong. Please try again.' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true, underage: age < 18 }, { status: 201 });
   } catch (err) {
