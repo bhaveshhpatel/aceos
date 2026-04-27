@@ -9,17 +9,15 @@
  * Never expose the service-role key to the browser.
  *
  * Error contract (T1.8 ApiError spec — SCREAMING_SNAKE_CASE):
- *   400 VALIDATION_ERROR  — Zod validation failed (fields contains per-field messages)
- *   409 EMAIL_ALREADY_EXISTS — duplicate email
- *   500 SIGNUP_FAILED     — students insert failed after auth user created (rollback triggered)
- *   500 INTERNAL_ERROR    — any other unexpected failure
+ *   400 VALIDATION_ERROR      — Zod validation failed (fields contains per-field messages)
+ *   409 EMAIL_ALREADY_EXISTS  — duplicate email
+ *   500 SIGNUP_FAILED         — students insert failed after auth user created (rollback triggered)
+ *   500 INTERNAL_ERROR        — any other unexpected failure
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { signUpSchema } from '@/types/auth';
 import { getAgeFromDob } from '@/lib/utils';
-
-const DEFAULT_PRODUCT = 'score-boost-ap';
 
 function serviceClient() {
   return createServiceClient(
@@ -37,7 +35,7 @@ export async function POST(request: NextRequest) {
       // AC-03b: server-side Zod rejection — SCREAMING_SNAKE_CASE, fields not issues
       return NextResponse.json(
         {
-          error: 'VALIDATION_ERROR',
+          error:  'VALIDATION_ERROR',
           fields: parsed.error.flatten().fieldErrors,
         },
         { status: 400 }
@@ -45,7 +43,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { first_name, last_name, email, password, dob } = parsed.data;
-    const product  = (body.product as string | undefined) ?? DEFAULT_PRODUCT;
     const supabase = serviceClient();
 
     // 1. Create Supabase Auth user (email_confirm: false — we send the link manually below)
@@ -135,13 +132,20 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 5. Generate verification link and send via Resend (S1-F-04)
-    // type:'magiclink' produces an equivalent email verification link.
+    // 5. Generate verification link — redirectTo is a neutral callback handler.
+    //    /auth/callback reads account_status from the DB and routes accordingly:
+    //      active             → /onboarding/subjects
+    //      pending_age_check  → /onboarding/consent
+    //    Product context is stored on the students row, NOT embedded in this link.
+    //    Embedding a product slug here would:
+    //      a) couple signup to product routing (SoC violation)
+    //      b) break all unverified emails if a product slug ever changes
+    //      c) require signup route changes every time a new product is added
     await supabase.auth.admin.generateLink({
       type:  'magiclink',
       email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?product=${product}&next=/onboarding/${product}/age-gate`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       },
     });
 

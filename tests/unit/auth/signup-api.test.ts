@@ -15,6 +15,12 @@
  *   event_type        — 'tos_accepted' | 'privacy_policy_accepted' | 'age_verified_adult' | ...
  *   document_version  — '1.0' for tos/privacy, null for age_verified_adult
  *   actor_email       — student email at signup time
+ *
+ * redirectTo contract (S1-F-01 AC-01 / S1-F-04):
+ *   generateLink must point to /auth/callback — a neutral handler that reads
+ *   account_status from the DB and routes accordingly.
+ *   Product context must NOT be embedded in this URL (separation of concerns —
+ *   see route.ts step 5 comment for full rationale).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -58,7 +64,6 @@ const validBody = {
   password:     'Secure123!',
   dob:          '2006-12-13',
   accept_terms: true,
-  product:      'score-boost-ap',
 };
 
 describe('POST /api/auth/signup', () => {
@@ -80,17 +85,31 @@ describe('POST /api/auth/signup', () => {
     expect(body.success).toBe(true);
   });
 
-  it('calls generateLink with type:magiclink and product-scoped redirectTo', async () => {
+  // AC-01 / S1-F-04 redirectTo contract:
+  // Must point to /auth/callback — neutral handler, no product slug.
+  it('calls generateLink with type:magiclink and redirectTo /auth/callback (no product slug)', async () => {
     await POST(makeRequest(validBody));
     expect(mockGenerateLink).toHaveBeenCalledWith(
       expect.objectContaining({
         type:  'magiclink',
         email: 'taylor@test.com',
         options: expect.objectContaining({
-          redirectTo: expect.stringContaining('/onboarding/score-boost-ap/age-gate'),
+          redirectTo: expect.stringContaining('/auth/callback'),
         }),
       })
     );
+    // Explicitly assert no product slug is embedded in the redirect URL
+    const callArgs = JSON.stringify(mockGenerateLink.mock.calls);
+    expect(callArgs).not.toContain('score-boost-ap');
+    expect(callArgs).not.toContain('age-gate');
+    expect(callArgs).not.toContain('onboarding/');
+  });
+
+  it('passing a product field in the body does NOT affect the redirectTo URL', async () => {
+    await POST(makeRequest({ ...validBody, product: 'score-boost-ap' }));
+    const callArgs = JSON.stringify(mockGenerateLink.mock.calls);
+    expect(callArgs).not.toContain('score-boost-ap');
+    expect(callArgs).not.toContain('age-gate');
   });
 
   it('sets account_status to pending_age_check for underage student', async () => {
@@ -116,11 +135,10 @@ describe('POST /api/auth/signup', () => {
   // ── consent_log shape (T1.1 schema — event_type + document_version) ────────
   it('inserts consent_log rows for ToS + Privacy Policy with correct event_type', async () => {
     await POST(makeRequest(validBody));
-    // First insert call: the [tos_accepted, privacy_policy_accepted] batch
     expect(mockConsentInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ event_type: 'tos_accepted',             document_version: '1.0' }),
-        expect.objectContaining({ event_type: 'privacy_policy_accepted',  document_version: '1.0' }),
+        expect.objectContaining({ event_type: 'tos_accepted',            document_version: '1.0' }),
+        expect.objectContaining({ event_type: 'privacy_policy_accepted', document_version: '1.0' }),
       ])
     );
   });
@@ -128,7 +146,6 @@ describe('POST /api/auth/signup', () => {
   it('inserts age_verified_adult consent_log row for adult signup', async () => {
     const adultDob = new Date(new Date().getFullYear() - 20, 0, 1).toISOString().split('T')[0];
     await POST(makeRequest({ ...validBody, dob: adultDob }));
-    // Second insert call: the age_verified_adult single row
     expect(mockConsentInsert).toHaveBeenCalledWith(
       expect.objectContaining({ event_type: 'age_verified_adult', document_version: null })
     );
@@ -144,12 +161,11 @@ describe('POST /api/auth/signup', () => {
     expect(hasAdultEvent).toBe(false);
   });
 
-  // ── Validation failures ───────────────────────────────────────────────────
+  // ── Validation failures ────────────────────────────────────────────────────
   it('returns 400 with VALIDATION_ERROR on missing fields', async () => {
     const res  = await POST(makeRequest({ email: 'bad', password: '123' }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    // T1.8 error contract: SCREAMING_SNAKE_CASE
     expect(body.error).toBe('VALIDATION_ERROR');
     expect(body.fields).toBeDefined();
   });
@@ -168,18 +184,16 @@ describe('POST /api/auth/signup', () => {
     const res  = await POST(makeRequest(validBody));
     expect(res.status).toBe(409);
     const body = await res.json();
-    // T1.8 error contract: SCREAMING_SNAKE_CASE
     expect(body.error).toBe('EMAIL_ALREADY_EXISTS');
   });
 
-  // ── Rollback on students insert failure ─────────────────────────────────────
+  // ── Rollback on students insert failure ────────────────────────────────────
   it('deletes the auth user and returns 500 SIGNUP_FAILED if students INSERT fails', async () => {
     mockStudentsInsert.mockResolvedValueOnce({ error: { message: 'insert failed' } });
     const res  = await POST(makeRequest(validBody));
     expect(res.status).toBe(500);
     expect(mockDeleteUser).toHaveBeenCalledWith('mock-user-id');
     const body = await res.json();
-    // T1.8 error contract: SIGNUP_FAILED, not internal_error
     expect(body.error).toBe('SIGNUP_FAILED');
   });
 });
