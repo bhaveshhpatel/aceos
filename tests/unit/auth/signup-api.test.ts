@@ -6,12 +6,15 @@
  * Strategy: mock @supabase/supabase-js createClient to intercept
  * auth.admin and from().insert() calls in isolation.
  *
- * Key implementation facts (read from route.ts):
- *   - Schema field: accept_terms (not tos_accepted/privacy_accepted)
- *   - from('students').insert() — first insert call
- *   - from('consent_log').insert([...]) — second insert call
- *   - auth.admin.generateLink() with type:'magiclink' — sends verification email
- *   - Rollback: auth.admin.deleteUser() if students insert fails
+ * Error contract (T1.8 — SCREAMING_SNAKE_CASE):
+ *   400 VALIDATION_ERROR      — Zod validation failed
+ *   409 EMAIL_ALREADY_EXISTS  — duplicate email
+ *   500 SIGNUP_FAILED         — students insert failed (rollback triggered)
+ *
+ * consent_log schema (T1.1):
+ *   event_type        — 'tos_accepted' | 'privacy_policy_accepted' | 'age_verified_adult' | ...
+ *   document_version  — '1.0' for tos/privacy, null for age_verified_adult
+ *   actor_email       — student email at signup time
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -110,22 +113,45 @@ describe('POST /api/auth/signup', () => {
     );
   });
 
-  it('inserts consent_log rows for ToS + Privacy Policy', async () => {
+  // ── consent_log shape (T1.1 schema — event_type + document_version) ────────
+  it('inserts consent_log rows for ToS + Privacy Policy with correct event_type', async () => {
     await POST(makeRequest(validBody));
+    // First insert call: the [tos_accepted, privacy_policy_accepted] batch
     expect(mockConsentInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ document_type: 'terms_of_service' }),
-        expect.objectContaining({ document_type: 'privacy_policy' }),
+        expect.objectContaining({ event_type: 'tos_accepted',             document_version: '1.0' }),
+        expect.objectContaining({ event_type: 'privacy_policy_accepted',  document_version: '1.0' }),
       ])
     );
   });
 
+  it('inserts age_verified_adult consent_log row for adult signup', async () => {
+    const adultDob = new Date(new Date().getFullYear() - 20, 0, 1).toISOString().split('T')[0];
+    await POST(makeRequest({ ...validBody, dob: adultDob }));
+    // Second insert call: the age_verified_adult single row
+    expect(mockConsentInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ event_type: 'age_verified_adult', document_version: null })
+    );
+  });
+
+  it('does NOT insert age_verified_adult row for minor signup', async () => {
+    const minorDob = new Date(new Date().getFullYear() - 15, 0, 1).toISOString().split('T')[0];
+    await POST(makeRequest({ ...validBody, dob: minorDob }));
+    const allCalls = mockConsentInsert.mock.calls.flat(2);
+    const hasAdultEvent = allCalls.some(
+      (arg: any) => arg?.event_type === 'age_verified_adult'
+    );
+    expect(hasAdultEvent).toBe(false);
+  });
+
   // ── Validation failures ───────────────────────────────────────────────────
-  it('returns 400 with validation_failed on missing fields', async () => {
+  it('returns 400 with VALIDATION_ERROR on missing fields', async () => {
     const res  = await POST(makeRequest({ email: 'bad', password: '123' }));
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toBe('validation_failed');
+    // T1.8 error contract: SCREAMING_SNAKE_CASE
+    expect(body.error).toBe('VALIDATION_ERROR');
+    expect(body.fields).toBeDefined();
   });
 
   it('returns 400 on empty body', async () => {
@@ -134,7 +160,7 @@ describe('POST /api/auth/signup', () => {
   });
 
   // ── Duplicate email ────────────────────────────────────────────────────────
-  it('returns 409 when Supabase returns a duplicate email error', async () => {
+  it('returns 409 with EMAIL_ALREADY_EXISTS when Supabase returns a duplicate email error', async () => {
     mockCreateUser.mockResolvedValueOnce({
       data:  { user: null },
       error: { message: 'User already registered', code: '23505' },
@@ -142,14 +168,18 @@ describe('POST /api/auth/signup', () => {
     const res  = await POST(makeRequest(validBody));
     expect(res.status).toBe(409);
     const body = await res.json();
-    expect(body.error).toBe('duplicate_email');
+    // T1.8 error contract: SCREAMING_SNAKE_CASE
+    expect(body.error).toBe('EMAIL_ALREADY_EXISTS');
   });
 
   // ── Rollback on students insert failure ─────────────────────────────────────
-  it('deletes the auth user and returns 500 if students INSERT fails', async () => {
+  it('deletes the auth user and returns 500 SIGNUP_FAILED if students INSERT fails', async () => {
     mockStudentsInsert.mockResolvedValueOnce({ error: { message: 'insert failed' } });
-    const res = await POST(makeRequest(validBody));
+    const res  = await POST(makeRequest(validBody));
     expect(res.status).toBe(500);
     expect(mockDeleteUser).toHaveBeenCalledWith('mock-user-id');
+    const body = await res.json();
+    // T1.8 error contract: SIGNUP_FAILED, not internal_error
+    expect(body.error).toBe('SIGNUP_FAILED');
   });
 });
