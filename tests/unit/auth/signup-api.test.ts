@@ -6,6 +6,13 @@
  * Strategy: mock @supabase/supabase-js and resend at module level so
  * neither constructor executes during test collection.
  *
+ * Why vi.hoisted():
+ *   Vitest hoists vi.mock() calls to the top of the file before any
+ *   const/let declarations are evaluated. Any variable referenced inside
+ *   a vi.mock() factory must therefore be declared with vi.hoisted(),
+ *   which runs in the same hoisted scope. Without this the factory
+ *   captures an uninitialised binding and throws a TDZ ReferenceError.
+ *
  * Two-log architecture (T1.1 / T1.4):
  *   consent_log      — legal document acceptance only
  *                      columns: document_type, version, accepted_at, ip_address, user_agent
@@ -20,31 +27,39 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// ── Mock Resend BEFORE importing the route ────────────────────────────────────
-// new Resend() throws if RESEND_API_KEY is absent. Mock the entire module so
-// the constructor never runs during test collection.
-const mockResendSend = vi.fn().mockResolvedValue({ error: null });
+// ── Hoist all mock fns BEFORE vi.mock() factories run ───────────────────────
+const {
+  mockResendSend,
+  mockStudentsInsert,
+  mockConsentInsert,
+  mockAuthEventInsert,
+  mockDeleteUser,
+  mockCreateUser,
+  mockGenerateLink,
+} = vi.hoisted(() => ({
+  mockResendSend:      vi.fn().mockResolvedValue({ error: null }),
+  mockStudentsInsert:  vi.fn().mockResolvedValue({ error: null }),
+  mockConsentInsert:   vi.fn().mockResolvedValue({ error: null }),
+  mockAuthEventInsert: vi.fn().mockResolvedValue({ error: null }),
+  mockDeleteUser:      vi.fn().mockResolvedValue({}),
+  mockCreateUser:      vi.fn(),
+  mockGenerateLink:    vi.fn(),
+}));
+
+// ── Mock resend ────────────────────────────────────────────────────────────
 vi.mock('resend', () => ({
   Resend: vi.fn().mockImplementation(() => ({
     emails: { send: mockResendSend },
   })),
 }));
 
-// ── Granular mocks per table ──────────────────────────────────────────────────
-const mockStudentsInsert    = vi.fn().mockResolvedValue({ error: null });
-const mockConsentInsert     = vi.fn().mockResolvedValue({ error: null });
-const mockAuthEventInsert   = vi.fn().mockResolvedValue({ error: null });
-const mockDeleteUser        = vi.fn().mockResolvedValue({});
-const mockCreateUser        = vi.fn();
-const mockGenerateLink      = vi.fn();
-
+// ── Mock @supabase/supabase-js ──────────────────────────────────────────────
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
       if (table === 'students')       return { insert: mockStudentsInsert };
       if (table === 'consent_log')    return { insert: mockConsentInsert };
       if (table === 'auth_event_log') return { insert: mockAuthEventInsert };
-      // Fallback — should never be hit; surface unknown tables clearly
       return { insert: vi.fn().mockRejectedValue(new Error(`Unexpected table: ${table}`)) };
     }),
     auth: {
@@ -67,7 +82,6 @@ function makeRequest(body: object) {
   }) as any;
 }
 
-// Default valid body — dob makes user 15 years old (minor)
 const validBody = {
   first_name:   'Taylor',
   last_name:    'Swift',
@@ -77,14 +91,12 @@ const validBody = {
   accept_terms: true,
 };
 
-// Adult dob — 20 years ago from test runtime
 function adultDob() {
   const d = new Date();
   d.setFullYear(d.getFullYear() - 20);
   return d.toISOString().split('T')[0];
 }
 
-// Minor dob — 15 years ago from test runtime
 function minorDob() {
   const d = new Date();
   d.setFullYear(d.getFullYear() - 15);
@@ -95,13 +107,11 @@ describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default happy-path createUser response
     mockCreateUser.mockResolvedValue({
       data:  { user: { id: 'mock-user-id', email: 'taylor@test.com', user_metadata: {} } },
       error: null,
     });
 
-    // generateLink must return properties.action_link or the route hits rollback
     mockGenerateLink.mockResolvedValue({
       data:  { properties: { action_link: 'https://supabase.test/verify?token=abc' } },
       error: null,
@@ -122,9 +132,6 @@ describe('POST /api/auth/signup', () => {
   });
 
   // ── generateLink contract (S1-F-04) ────────────────────────────────────────
-  // type must be 'signup' (not 'magiclink') — 'signup' generates an email
-  // verification link; 'magiclink' generates a passwordless sign-in link
-  // and does NOT verify the email address.
   it('calls generateLink with type:signup and redirectTo /auth/callback', async () => {
     await POST(makeRequest(validBody));
     expect(mockGenerateLink).toHaveBeenCalledWith(
@@ -146,7 +153,7 @@ describe('POST /api/auth/signup', () => {
     expect(callArgs).not.toContain('onboarding/');
   });
 
-  it('passing a product field in the body does NOT affect the redirectTo URL', async () => {
+  it('passing a product field in body does NOT affect the redirectTo URL', async () => {
     await POST(makeRequest({ ...validBody, product: 'score-boost-ap' }));
     const callArgs = JSON.stringify(mockGenerateLink.mock.calls);
     expect(callArgs).not.toContain('score-boost-ap');
@@ -169,15 +176,12 @@ describe('POST /api/auth/signup', () => {
   });
 
   // ── consent_log shape (T1.1 two-log schema) ────────────────────────────────
-  // consent_log = legal document acceptance ONLY.
-  // Columns: document_type (enum), version, accepted_at, ip_address, user_agent.
-  // NO event_type, document_version, or actor_email on this table.
   it('writes ToS + Privacy Policy rows to consent_log with correct document_type and version', async () => {
     await POST(makeRequest(validBody));
     expect(mockConsentInsert).toHaveBeenCalledWith(
       expect.arrayContaining([
-        expect.objectContaining({ document_type: 'terms_of_service',  version: '1.0' }),
-        expect.objectContaining({ document_type: 'privacy_policy',    version: '1.0' }),
+        expect.objectContaining({ document_type: 'terms_of_service', version: '1.0' }),
+        expect.objectContaining({ document_type: 'privacy_policy',   version: '1.0' }),
       ])
     );
   });
@@ -204,8 +208,6 @@ describe('POST /api/auth/signup', () => {
   });
 
   // ── auth_event_log shape (T1.1 two-log schema) ────────────────────────────
-  // auth_event_log = auth lifecycle events ONLY.
-  // age_verified_adult written here for adults, NOT to consent_log.
   it('writes age_verified_adult to auth_event_log for adult signup', async () => {
     await POST(makeRequest({ ...validBody, dob: adultDob() }));
     expect(mockAuthEventInsert).toHaveBeenCalledWith(
@@ -249,17 +251,17 @@ describe('POST /api/auth/signup', () => {
   });
 
   it('returns 400 when password missing uppercase', async () => {
-    const res  = await POST(makeRequest({ ...validBody, password: 'secure123!' }));
+    const res = await POST(makeRequest({ ...validBody, password: 'secure123!' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when password missing number', async () => {
-    const res  = await POST(makeRequest({ ...validBody, password: 'SecurePass!' }));
+    const res = await POST(makeRequest({ ...validBody, password: 'SecurePass!' }));
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when password shorter than 8 chars', async () => {
-    const res  = await POST(makeRequest({ ...validBody, password: 'S1!' }));
+    const res = await POST(makeRequest({ ...validBody, password: 'S1!' }));
     expect(res.status).toBe(400);
   });
 
