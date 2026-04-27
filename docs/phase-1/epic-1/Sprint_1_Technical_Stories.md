@@ -19,9 +19,9 @@ These technical stories define the engineering implementation for Sprint 1. Ever
 > **Schema Drift Notice — Updated 2026-04-26**
 > Original spec used a `profiles` table. Actual implementation uses a `students` table with manual insertion in the API route. This story has been updated to reflect the implemented schema. The `profiles` table, `is_minor` computed column, and DB trigger (T1.7) are superseded.
 
-> **Gap Fix — Session 4 (2026-04-26):** Added `mastery_data JSONB` column to `student_subjects`.
+> **Gap Fix — Session 5 (G5):** Added `parent_email TEXT` column to `students` table. Added index on `consent_log.student_id`.
 
-> **Gap Fix — Session 5 (2026-04-26):** Added `parent_email TEXT` column to `students` table (G6). Added index on `consent_log.student_id` (G8).
+> **Sync — Session 7:** `consent_log` updated to legal-document-acceptance-only shape (document_type, version, accepted_at). `auth_event_log` table added for auth lifecycle events. `student_subjects` updated to normalized FK model (subject_id → subjects, product_id → products). `subjects` and `products` tables added.
 
 **As a** backend engineer,
 **I need** the Supabase project configured with the correct database schema, RLS policies, and auth settings,
@@ -39,69 +39,110 @@ These technical stories define the engineering implementation for Sprint 1. Ever
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- students table (primary user record, extends auth.users)
+-- products (top-level product registry)
+CREATE TABLE products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  phase SMALLINT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- subjects (AP subject registry, scoped to a product)
+CREATE TABLE subjects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  icon_name TEXT,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order INTEGER NOT NULL,
+  product_id UUID NOT NULL REFERENCES products(id)
+);
+
+-- students (primary user record, extends auth.users)
 CREATE TABLE students (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  dob DATE NOT NULL,
-  account_status TEXT NOT NULL CHECK (
-    account_status IN ('pending_age_check', 'pending_consent', 'active', 'declined', 'suspended')
-  ) DEFAULT 'pending_age_check',
-  -- parent_email: stored on the student row when a minor submits /onboarding/consent.
+  dob DATE,
+  account_status account_status NOT NULL DEFAULT 'pending_age_check',
+  -- parent_email: stored when a minor submits /onboarding/consent.
   -- Required for: resend flow, audit trail, awaiting-consent masking display.
   -- NULL for adult accounts.
   parent_email TEXT,
-  email_verified BOOLEAN DEFAULT FALSE,
-  onboarding_completed BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  consent_token TEXT,
+  consent_token_expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- consent_log (immutable audit trail for all consent events)
+-- consent_document_type enum
+CREATE TYPE consent_document_type AS ENUM (
+  'terms_of_service',
+  'privacy_policy'
+);
+
+-- consent_log — legal document acceptance ONLY (immutable audit trail)
+-- Stores: which legal document was accepted, which version, when, from where.
+-- Does NOT store auth lifecycle events (age verification, consent emails, etc.).
+-- Those go to auth_event_log.
 CREATE TABLE consent_log (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  student_id UUID NOT NULL REFERENCES students(id),
-  event_type TEXT NOT NULL CHECK (
-    event_type IN (
-      'tos_accepted',
-      'privacy_policy_accepted',
-      'consent_email_sent',
-      'consent_granted',
-      'consent_denied',
-      'consent_revoked',
-      'age_verified_adult'
-    )
-  ),
-  -- document_version: '1.0' for tos_accepted and privacy_policy_accepted. NULL for all others.
-  document_version TEXT,
-  actor_email TEXT,
-  ip_address INET,
-  user_agent TEXT,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  document_type consent_document_type NOT NULL,
+  version TEXT NOT NULL DEFAULT '1.0',
+  accepted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ip_address TEXT,
+  user_agent TEXT
 );
 
--- Performance index: consent_log is queried by student_id on every auth operation.
 CREATE INDEX idx_consent_log_student_id ON consent_log(student_id);
 
--- student_subjects (created during onboarding — Sprint 1 S1-F-05)
-CREATE TABLE student_subjects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- auth_event_type enum
+CREATE TYPE auth_event_type AS ENUM (
+  'age_verified_adult',
+  'email_verified',
+  'consent_email_sent',
+  'consent_granted',
+  'consent_denied',
+  'consent_revoked'
+);
+
+-- auth_event_log — auth lifecycle events ONLY
+-- Stores: age verification, consent email sent/granted/denied, email verified.
+-- Does NOT store legal document acceptance (that goes to consent_log).
+CREATE TABLE auth_event_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  subject_code TEXT NOT NULL,
-  subject_name TEXT NOT NULL,
-  exam_date DATE,
-  is_active BOOLEAN DEFAULT TRUE,
-  mastery_data JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(student_id, subject_code)
+  event_type auth_event_type NOT NULL,
+  actor_email TEXT,
+  ip_address TEXT,
+  user_agent TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_auth_event_log_student_id ON auth_event_log(student_id);
+
+-- student_subjects — normalized enrollment join table (created during onboarding S1-F-05)
+CREATE TABLE student_subjects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  subject_id UUID NOT NULL REFERENCES subjects(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  enrolled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(student_id, subject_id)
 );
 
 -- provider_config (PID model — Sprint 2+)
 CREATE TABLE provider_config (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   provider_key TEXT NOT NULL UNIQUE,
   provider_type TEXT NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
@@ -132,6 +173,15 @@ CREATE POLICY "consent_log_insert_service_only" ON consent_log
 CREATE POLICY "consent_log_no_client_read" ON consent_log
   FOR SELECT USING (FALSE);
 
+-- auth_event_log: insert-only from server (service_role), no client reads
+ALTER TABLE auth_event_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "auth_event_log_insert_service_only" ON auth_event_log
+  FOR INSERT WITH CHECK (auth.role() = 'service_role');
+
+CREATE POLICY "auth_event_log_no_client_read" ON auth_event_log
+  FOR SELECT USING (FALSE);
+
 -- student_subjects: student reads/writes only their own
 ALTER TABLE student_subjects ENABLE ROW LEVEL SECURITY;
 
@@ -143,6 +193,13 @@ CREATE POLICY "subjects_insert_own" ON student_subjects
 
 CREATE POLICY "subjects_update_own" ON student_subjects
   FOR UPDATE USING (auth.uid() = student_id);
+
+-- products + subjects: public read (no PII, lookup data only)
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "products_public_read" ON products FOR SELECT USING (TRUE);
+
+ALTER TABLE subjects ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "subjects_public_read" ON subjects FOR SELECT USING (TRUE);
 ```
 
 ### Acceptance Criteria
@@ -155,12 +212,22 @@ Scenario: RLS prevents cross-user data access
 
 Scenario: Service role can write to consent_log
   Given a server-side Supabase client using service_role key
-  When it inserts a consent_log record
+  When it inserts a consent_log record with document_type and version
   Then the insert succeeds
 
 Scenario: Client cannot read consent_log
   Given an authenticated student JWT
   When the client queries consent_log
+  Then zero rows are returned
+
+Scenario: Service role can write to auth_event_log
+  Given a server-side Supabase client using service_role key
+  When it inserts an auth_event_log record with event_type
+  Then the insert succeeds
+
+Scenario: Client cannot read auth_event_log
+  Given an authenticated student JWT
+  When the client queries auth_event_log
   Then zero rows are returned
 
 Scenario: students row shape is correct after signup
@@ -177,28 +244,35 @@ Scenario: parent_email is stored on minor student row
 Scenario: account_status CHECK constraint rejects invalid values
   Given a students row
   When updated to account_status = 'unknown'
-  Then the update is rejected by the CHECK constraint
+  Then the update is rejected
 
-Scenario: consent_log event_type constraint is enforced
-  Given a service_role client
-  When it inserts a consent_log row with event_type = 'invalid_event'
-  Then the insert is rejected
-
-Scenario: consent_log document_version is written correctly
+Scenario: consent_log written correctly for adult signup
   Given a successful adult signup
-  Then tos_accepted row has document_version = '1.0'
-  And privacy_policy_accepted row has document_version = '1.0'
-  And age_verified_adult row has document_version = NULL
+  Then two consent_log rows exist:
+    - document_type = 'terms_of_service', version = '1.0'
+    - document_type = 'privacy_policy', version = '1.0'
+  And NO consent_log row exists for age_verified_adult (that goes to auth_event_log)
 
-Scenario: mastery_data initializes as empty object
-  Given a student selects AP Chemistry
-  When the student_subjects row is created
-  Then mastery_data = '{}'
+Scenario: auth_event_log written correctly for adult signup
+  Given a successful adult signup
+  Then one auth_event_log row exists with event_type = 'age_verified_adult'
+  And NO auth_event_log row exists for terms_of_service or privacy_policy
 
-Scenario: consent_log student_id index exists
+Scenario: consent_log index exists
   Given the database schema is applied
   When pg_indexes is queried for consent_log
   Then idx_consent_log_student_id exists on the student_id column
+
+Scenario: auth_event_log index exists
+  Given the database schema is applied
+  When pg_indexes is queried for auth_event_log
+  Then idx_auth_event_log_student_id exists on the student_id column
+
+Scenario: student_subjects enrollment references subjects FK
+  Given a student selects AP Chemistry during onboarding
+  When the student_subjects row is created
+  Then student_subjects.subject_id references subjects.id (not a text code)
+  And student_subjects.product_id references products.id
 ```
 
 ### Implementation Notes
@@ -206,7 +280,8 @@ Scenario: consent_log student_id index exists
 - `parent_email` is written by `POST /api/auth/consent/send`, not at signup time
 - `updated_at` managed at application layer
 - All migrations version-controlled under `supabase/migrations/`
-- `document_version` must be passed explicitly as `"1.0"` — NOT a DB default
+- **Two-log architecture:** `consent_log` = legal documents only. `auth_event_log` = auth lifecycle events only. Never mix them.
+- `version` on consent_log is passed explicitly as `'1.0'` — NOT hardcoded as a DB default for new documents
 
 ---
 
@@ -322,7 +397,8 @@ Scenario: Timeout enforced per route
 > **Updated 2026-04-26 (Session 3):** State machine corrected to use `students` table and actual `account_status` values.
 > **Gap Fix — Session 4:** `consent_log.document_version` convention documented.
 > **Gap Fix — Session 5 (G1, G6, G7, G9, G10):** Minor flow corrected (email verify first). `parent_email` written on consent send. Parent approval/decline routes fully specced. Middleware `declined` rule added. Race condition guard added to approval route.
-> **Gap Fix — Session 7 (S1-F-04):** `generateLink` → Resend handoff explicitly documented in state machine and implementation notes.
+> **Gap Fix — Session 7 (S1-F-04):** `generateLink` → Resend handoff explicitly documented.
+> **Sync — Session 8:** State machine updated to two-log architecture. `consent_log` inserts now use `document_type` + `version`. `age_verified_adult` lifecycle event now writes to `auth_event_log`, not `consent_log`.
 
 **As a** backend engineer,
 **I need** email/password authentication with an age-gate flow, email verification, parental consent email delivery, and password recovery,
@@ -337,12 +413,12 @@ Scenario: Timeout enforced per route
     → validate fields (Zod)
     → supabase.auth.admin.createUser()
     → insert students row (service role)
-    → insert consent_log: 'tos_accepted' { document_version: '1.0' }
-    → insert consent_log: 'privacy_policy_accepted' { document_version: '1.0' }
+    → insert consent_log: { document_type: 'terms_of_service', version: '1.0' }
+    → insert consent_log: { document_type: 'privacy_policy', version: '1.0' }
     → compute age from dob
     → if age >= 18:
         → students.account_status = 'active'
-        → insert consent_log: 'age_verified_adult' { document_version: NULL }
+        → insert auth_event_log: { event_type: 'age_verified_adult' }   ← NOT consent_log
     → if age < 18:
         → students.account_status = 'pending_age_check'
     → ALL USERS:
@@ -354,44 +430,45 @@ Scenario: Timeout enforced per route
 
 [Supabase email verification callback — /auth/callback]
     → students.email_verified = true
+    → insert auth_event_log: { event_type: 'email_verified' }
     → redirect based on account_status:
-        'active'           → /onboarding/subjects
-        'pending_age_check'→ /onboarding/consent
-        'pending_consent'  → /onboarding/awaiting-consent
+        'active'            → /onboarding/subjects
+        'pending_age_check' → /onboarding/consent
+        'pending_consent'   → /onboarding/awaiting-consent
 
 [POST /api/auth/consent/send]
     → authenticate request (valid session, account_status IN ('pending_age_check', 'pending_consent'))
     → validate parent_email (Zod)
-    → update students.parent_email = parent_email  ← persists for resend + display
+    → update students.parent_email = parent_email
     → update students.account_status = 'pending_consent'
     → generate signed consent JWT: { student_id, parent_email, exp: now + 7d }
       signed with CONSENT_JWT_SECRET (HS256, jose)
-    → insert consent_log: 'consent_email_sent' { document_version: NULL, actor_email: parent_email }
+    → insert auth_event_log: { event_type: 'consent_email_sent', actor_email: parent_email }  ← NOT consent_log
     → send consent email via Resend
     → return { success: true }
 
-[GET /api/auth/consent/approve?token=X]  ← FULLY SPECCED (G7)
+[GET /api/auth/consent/approve?token=X]
     → verify JWT: signature + expiry
     → if invalid/expired → redirect to /auth/consent-expired
     → decode: { student_id, parent_email }
-    → SELECT FOR UPDATE students WHERE id = student_id  ← prevents race condition (G10)
-    → if account_status = 'active' → redirect to /auth/consent-already-actioned (already approved)
+    → SELECT FOR UPDATE students WHERE id = student_id  ← prevents race condition
+    → if account_status = 'active' → redirect to /auth/consent-already-actioned
     → if account_status = 'declined' → redirect to /auth/consent-already-actioned
     → update students.account_status = 'active'
-    → insert consent_log: 'consent_granted' { document_version: NULL, actor_email: parent_email }
+    → insert auth_event_log: { event_type: 'consent_granted', actor_email: parent_email }  ← NOT consent_log
     → send confirmation email to student via Resend
-    → redirect to success page: show "[Student first name]'s account is now active."
+    → redirect to success page
 
-[GET /api/auth/consent/deny?token=X]  ← FULLY SPECCED (G7)
+[GET /api/auth/consent/deny?token=X]
     → verify JWT: signature + expiry
     → if invalid/expired → redirect to /auth/consent-expired
     → decode: { student_id, parent_email }
     → SELECT FOR UPDATE students WHERE id = student_id
     → if account_status NOT IN ('pending_age_check', 'pending_consent') → redirect to /auth/consent-already-actioned
     → update students.account_status = 'declined'
-    → insert consent_log: 'consent_denied' { document_version: NULL, actor_email: parent_email }
+    → insert auth_event_log: { event_type: 'consent_denied', actor_email: parent_email }  ← NOT consent_log
     → delete auth.users record (FERPA — no data retained without consent)
-    → redirect to denial page: show "Account request declined."
+    → redirect to denial page
 
 [POST /api/auth/forgot-password]
     → always return HTTP 200 { message: "If an account exists, we've sent a reset link" }
@@ -401,6 +478,21 @@ Scenario: Timeout enforced per route
     → validate password (Zod: min 8, 1 uppercase, 1 number)
     → supabase.auth.updateUser({ password })
     → redirect to /signin with success banner
+```
+
+### Two-Log Architecture Rule
+
+```
+consent_log      — legal document acceptance ONLY
+                   columns: document_type (enum), version, accepted_at, ip_address, user_agent
+                   written at: signup (ToS + PP)
+                   NEVER written for: age verification, consent emails, approval, denial
+
+auth_event_log   — auth lifecycle events ONLY
+                   columns: event_type (enum), actor_email, ip_address, user_agent, metadata
+                   written at: age_verified_adult, email_verified, consent_email_sent,
+                               consent_granted, consent_denied, consent_revoked
+                   NEVER written for: legal document acceptance
 ```
 
 ### Consent Email Specification (via Resend)
@@ -454,18 +546,27 @@ app/api/auth/verify-email/route.ts
 ### Acceptance Criteria
 
 ```gherkin
-Scenario: Adult signup → /verify-email (all users)
+Scenario: Adult signup sets correct account_status
   Given a user submits signup with dob 20 years ago
   When POST /api/auth/signup succeeds
   Then students.account_status = 'active'
   And redirect = /verify-email
 
-Scenario: Minor signup → /verify-email (all users)
+Scenario: Minor signup sets correct account_status
   Given a user submits signup with dob 15 years ago
   When POST /api/auth/signup succeeds
   Then students.account_status = 'pending_age_check'
   And redirect = /verify-email
   And NOT redirected to /onboarding/consent (that comes after email verification)
+
+Scenario: Adult signup writes to two-log architecture correctly
+  Given a successful adult signup
+  Then consent_log contains exactly two rows:
+    - document_type = 'terms_of_service', version = '1.0'
+    - document_type = 'privacy_policy', version = '1.0'
+  And auth_event_log contains exactly one row:
+    - event_type = 'age_verified_adult'
+  And NO row in consent_log has event_type or actor_email columns (they don't exist)
 
 Scenario: generateLink called and action_link passed to Resend
   Given a successful signup for any user
@@ -473,38 +574,40 @@ Scenario: generateLink called and action_link passed to Resend
   Then supabase.auth.admin.generateLink is called with { type: 'signup', email }
   And properties.action_link from the response is passed as the verification URL to Resend
   And Resend delivers the email to the user's inbox
-  And supabase does NOT auto-send any email (autoConfirm disabled in Supabase Auth settings)
+  And Supabase does NOT auto-send any email (autoConfirm disabled)
 
-Scenario: Minor email verified → /onboarding/consent
+Scenario: Minor email verified routes to /onboarding/consent
   Given a minor with email_verified = false
   When they click the verification link
   Then email_verified = true
+  And auth_event_log contains event_type = 'email_verified'
   And redirect = /onboarding/consent
 
-Scenario: Adult email verified → /onboarding/subjects
+Scenario: Adult email verified routes to /onboarding/subjects
   Given an adult with account_status = 'active' and email_verified = false
   When they click the verification link
   Then email_verified = true
   And redirect = /onboarding/subjects
 
-Scenario: Consent send stores parent_email on student row
+Scenario: Consent send stores parent_email and writes auth_event_log
   Given a minor student posts valid parent_email to /api/auth/consent/send
   Then students.parent_email = submitted parent_email
   And students.account_status = 'pending_consent'
-  And consent_log contains 'consent_email_sent'
+  And auth_event_log contains event_type = 'consent_email_sent'
+  And NO consent_log row written for consent_email_sent
 
-Scenario: Parent approval activates account (race-safe)
+Scenario: Parent approval activates account and writes auth_event_log
   Given a valid unexpired consent JWT
   When GET /api/auth/consent/approve is called
   Then SELECT FOR UPDATE locks the students row
   And students.account_status = 'active'
-  And consent_log contains 'consent_granted'
-  And confirmation email sent to student
+  And auth_event_log contains event_type = 'consent_granted'
+  And NO consent_log row written for consent_granted
 
 Scenario: Simultaneous approval clicks produce one outcome
   Given two concurrent requests to /api/auth/consent/approve with the same token
   When both requests are processed
-  Then exactly one consent_granted row is created in consent_log
+  Then exactly one consent_granted row is created in auth_event_log
   And the second request is redirected to /auth/consent-already-actioned
 
 Scenario: Parent denial deletes auth record (FERPA)
@@ -512,7 +615,7 @@ Scenario: Parent denial deletes auth record (FERPA)
   When GET /api/auth/consent/deny
   Then students.account_status = 'declined'
   And auth.users record is deleted
-  And consent_log contains 'consent_denied'
+  And auth_event_log contains event_type = 'consent_denied'
 
 Scenario: Expired token redirects to consent-expired page
   Given a JWT with exp = 8 days ago
@@ -524,7 +627,7 @@ Scenario: Already-approved token redirects to already-actioned page
   Given students.account_status = 'active'
   When the same approval link is clicked again
   Then redirect = /auth/consent-already-actioned
-  And no duplicate consent_log rows
+  And no duplicate auth_event_log rows
 
 Scenario: Signup rolls back on failure
   Given auth.admin.createUser() succeeds but students insert fails
@@ -542,10 +645,11 @@ Scenario: Reset email sent without revealing account existence
 ```
 
 ### Implementation Notes
-- **`generateLink` → Resend handoff (S1-F-04):** `supabase.auth.admin.generateLink` returns a response object — the verification URL lives at `data.properties.action_link`. This value must be explicitly extracted and passed to Resend as the link in the verification email. The route does NOT auto-send any email; Supabase Auth email sending must be disabled in the Supabase dashboard (Auth → Settings → "Enable email confirmations" OFF, or SMTP left unconfigured) so that only the Resend call delivers the email.
+- **Two-log rule:** `consent_log` is for legal document acceptance only. `auth_event_log` is for all other auth events. Never insert to the wrong table.
+- **`generateLink` → Resend handoff (S1-F-04):** `supabase.auth.admin.generateLink` returns a response object — the verification URL lives at `data.properties.action_link`. This value must be explicitly extracted and passed to Resend. Supabase Auth email sending must be disabled in the dashboard.
 - Consent JWT signed with `CONSENT_JWT_SECRET` — a dedicated env var, NOT `SUPABASE_SERVICE_ROLE_KEY`
 - `SELECT FOR UPDATE` on approval/denial routes requires service role + raw SQL via `supabase.rpc` or `pg` direct connection
-- `document_version: '1.0'` passed explicitly — not a DB default
+- `version: '1.0'` passed explicitly on consent_log inserts — not a DB default
 - All Resend calls server-side only
 - Password reset uses Supabase native `resetPasswordForEmail` — no custom token logic
 
@@ -615,14 +719,16 @@ Scenario: Missing code param handled
 
 ### Subject Registry (Phase 1)
 
+Subjects are seeded into the `subjects` table (FK → `products`). The `PHASE_1_SUBJECTS` constant in `config/subjects.ts` maps to live DB slugs for UI rendering.
+
 ```typescript
 export const PHASE_1_SUBJECTS = [
-  { code: 'AP_CHEM',         name: 'AP Chemistry',                      type: 'VISUAL', units: 9,  exam_date_2026: '2026-05-04', icon: '🧪' },
-  { code: 'AP_BIO',          name: 'AP Biology',                        type: 'VISUAL', units: 8,  exam_date_2026: '2026-05-08', icon: '🧬' },
-  { code: 'AP_CALC_AB',      name: 'AP Calculus AB',                    type: 'VISUAL', units: 10, exam_date_2026: '2026-05-04', icon: '∫'  },
-  { code: 'AP_USHISTORY',    name: 'AP US History',                     type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-07', icon: '🇺🇸' },
-  { code: 'AP_WORLDHISTORY', name: 'AP World History',                  type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-14', icon: '🌍' },
-  { code: 'AP_LANG',         name: 'AP English Language & Composition', type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-13', icon: '✍️' },
+  { slug: 'ap-chemistry',    name: 'AP Chemistry',                      type: 'VISUAL', units: 9,  exam_date_2026: '2026-05-04', icon: '🧪' },
+  { slug: 'ap-biology',      name: 'AP Biology',                        type: 'VISUAL', units: 8,  exam_date_2026: '2026-05-08', icon: '🧬' },
+  { slug: 'ap-calculus-ab',  name: 'AP Calculus AB',                    type: 'VISUAL', units: 10, exam_date_2026: '2026-05-04', icon: '∫'  },
+  { slug: 'ap-us-history',   name: 'AP US History',                     type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-07', icon: '🇺🇸' },
+  { slug: 'ap-world-history',name: 'AP World History',                  type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-14', icon: '🌍' },
+  { slug: 'ap-lang',         name: 'AP English Language & Composition', type: 'TEXT',   units: 9,  exam_date_2026: '2026-05-13', icon: '✍️' },
 ] as const;
 ```
 
@@ -631,12 +737,13 @@ export const PHASE_1_SUBJECTS = [
 ```typescript
 export async function saveSubjectSelections(
   studentId: string,
-  selections: { subjectCode: string; examDate: string }[]
+  subjectIds: string[]   // UUIDs from subjects table
 ): Promise<{ success: boolean; error?: string }> {
   // 1. Validate: min 1, max 4
-  // 2. Upsert student_subjects (mastery_data: {})
-  // 3. Update students.onboarding_completed = true
-  // 4. Return { success: true } or { success: false, error }
+  // 2. Lookup product_id from subjects rows
+  // 3. Upsert student_subjects (student_id, subject_id, product_id, enrolled_at)
+  // 4. Update students.onboarding_completed = true
+  // 5. Return { success: true } or { success: false, error }
 }
 ```
 
@@ -656,13 +763,17 @@ Scenario: Max 4 enforced
   When 5th attempted
   Then card does not select, message shown
 
-Scenario: DB rows created correctly
+Scenario: DB rows created correctly (normalized FK model)
   Given student selects AP Chemistry + AP US History, clicks Continue
-  Then 2 student_subjects rows with mastery_data = '{}'
+  Then 2 student_subjects rows with:
+    - student_id = student's UUID
+    - subject_id = subjects.id (FK, not text code)
+    - product_id = products.id (FK)
+    - enrolled_at = now()
   And onboarding_completed = true
   And redirect = /dashboard
 
-Scenario: Completed onboarding → redirect away from entire /onboarding/* namespace
+Scenario: Completed onboarding redirects away from /onboarding/* namespace
   Given onboarding_completed = true
   When student navigates to /onboarding/subjects OR /onboarding/consent
   Then redirect = /dashboard
@@ -672,13 +783,11 @@ Scenario: Completed onboarding → redirect away from entire /onboarding/* names
 
 ## T1.6 — Privacy Policy & Terms of Service Legal Pages
 
-> **Gap Fix — Session 5 (G3):** Sprint 1 renders placeholder content. Real content required before public launch. Spec updated to reflect placeholder strategy.
+> **Gap Fix — Session 5 (G3):** Sprint 1 renders placeholder content. Real content required before public launch.
 
 **Covers:** S1-F-08 (UI layer)
 
 ### Sprint 1 Strategy: Placeholder Pages
-
-Both legal pages will render placeholder content in Sprint 1 to unblock S1-F-08. The placeholder must clearly indicate the page is under construction and NOT be indexed by search engines.
 
 ```tsx
 // app/legal/privacy-policy/page.tsx
@@ -693,7 +802,6 @@ Both legal pages will render placeholder content in Sprint 1 to unblock S1-F-08.
 
 // ⚠️ PRE-LAUNCH BLOCKER: Replace placeholder with real FERPA-compliant content
 // before any public or beta users are onboarded.
-// Ticket must be created and assigned before Sprint 1 is marked complete.
 ```
 
 ### Route Requirements
@@ -794,30 +902,16 @@ Scenario: Loading state prevents double-submit
 ### Middleware Redirect Rules
 
 ```typescript
-// middleware.ts
-// After session validation, redirect based on account_status:
-
 const REDIRECT_MATRIX = {
-  // Unauthenticated → signin (with redirect param)
-  NO_SESSION:         '/signin?redirect=<path>',
-
-  // Authenticated — route by account_status + onboarding_completed
-  active_onboarded:       null,              // allow through
+  NO_SESSION:            '/signin?redirect=<path>',
+  active_onboarded:       null,
   active_not_onboarded:  '/onboarding/subjects',
   pending_age_check:     '/onboarding/consent',
   pending_consent:       '/onboarding/awaiting-consent',
-  declined:              '/signin',          // show declined-account message, no product access
-  suspended:             '/signin',          // show suspended-account message
-
-  // Authenticated trying to access /signin or /signup
+  declined:              '/signin',
+  suspended:             '/signin',
   AUTH_ON_PUBLIC_AUTH_PAGE: '/dashboard',
 }
-
-// REDIRECT PARAM VALIDATION GUARD:
-// After re-auth, before following ?redirect= param:
-//   if redirect targets /onboarding/* AND onboarding_completed = true → override to /dashboard
-//   if redirect targets /onboarding/consent AND account_status = 'active' → override to /dashboard
-//   if account_status = 'declined' → always /signin (never follow any redirect to product)
 
 const PUBLIC_PATHS = [
   '/signin', '/signup', '/verify-email',
@@ -854,7 +948,6 @@ Scenario: Declined user cannot access any product page
   Given account_status = 'declined'
   When they attempt to access /dashboard or any product route
   Then redirect = /signin
-  And signin page shows declined-account message
 
 Scenario: pending_consent user redirected to awaiting-consent
   Given account_status = 'pending_consent'
@@ -887,15 +980,15 @@ app/
     reset-password/page.tsx
     verify-email/page.tsx
   (protected)/
-    layout.tsx           ← NavBar + session check + /onboarding/* guard
+    layout.tsx
     dashboard/page.tsx
     dashboard/loading.tsx
     onboarding/
       subjects/page.tsx
       consent/page.tsx
       awaiting-consent/page.tsx
-      complete-profile/page.tsx  ← OAuth only, Sprint 2
-    profile/page.tsx             ← Sprint 2+
+      complete-profile/page.tsx
+    profile/page.tsx
   legal/
     privacy-policy/page.tsx
     terms-of-service/page.tsx
@@ -911,12 +1004,9 @@ export default async function ProtectedLayout({ children }) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/signin');
-
   // /onboarding/* namespace guard:
   // If student.onboarding_completed = true AND current path starts with /onboarding/
   // → redirect('/dashboard')
-  // This protects the entire /onboarding/* namespace, not just /onboarding/subjects.
-
   return (
     <div>
       <NavBar />
@@ -937,25 +1027,21 @@ Scenario: NavBar on all (protected) pages
   Given signed-in student on /dashboard or /onboarding/subjects
   Then NavBar is visible
 
-Scenario: /onboarding/* namespace fully guarded for completed students
+Scenario: /onboarding/* namespace fully guarded
   Given onboarding_completed = true
-  When student navigates to /onboarding/subjects
-  Then redirect = /dashboard
-  When student navigates to /onboarding/consent
-  Then redirect = /dashboard
-  When student navigates to /onboarding/awaiting-consent
+  When student navigates to /onboarding/subjects, /onboarding/consent, or /onboarding/awaiting-consent
   Then redirect = /dashboard
 
 Scenario: Dashboard shows correct subjects
   Given student enrolled in AP Chemistry + AP US History
   When /dashboard loads
-  Then 2 subject cards shown with "Diagnostic not yet taken"
+  Then 2 subject cards shown
 
 Scenario: Dashboard server-side rendered
   When inspecting initial HTML before client JS
   Then subject names and welcome message are in the HTML
 
-Scenario: Incomplete onboarding → /onboarding/subjects
+Scenario: Incomplete onboarding routes to subjects
   Given onboarding_completed = false
   When student hits /dashboard
   Then redirect = /onboarding/subjects
@@ -1011,7 +1097,7 @@ Scenario: Forgot password link on signin
 
 ## T1.12 — Onboarding Flow UI Pages
 
-> **Added Session 4.** Gap: API routes redirect to pages that had no UI spec.
+> **Added Session 4.**
 > **Gap Fix — Session 5 (G2):** Resend + correct-email flows fully specced on awaiting-consent page.
 
 **Covers:** S1-F-03, S1-F-04 (UI layer)
@@ -1026,38 +1112,26 @@ Scenario: Forgot password link on signin
 | `/auth/consent-expired` | `(public)` | Parent lands here on expired token. Static. |
 | `/auth/consent-already-actioned` | `(public)` | Parent lands here on already-used token. Static. |
 
-### `/onboarding/awaiting-consent` — Full Specification (G2)
+### `/onboarding/awaiting-consent` — Full Specification
 
 ```typescript
 // Server component with client islands for buttons
 // On load:
 //   1. Fetch students row → get parent_email
 //   2. If account_status = 'active' → redirect('/onboarding/subjects')
-//      (parent already approved while student was on this page)
 //   3. Render holding screen
 
 // Displayed:
 //   Heading: "Waiting for approval"
-//   Body: "We sent an approval request to [masked parent email].
-//          Once your parent approves, you'll be able to access AceOS."
+//   Body: "We sent an approval request to [masked parent email]."
 //   Masked email format: first char + *** + @domain  (e.g. j***@gmail.com)
 //   Implemented in: lib/utils/mask-email.ts
 
 // Actions:
-//   [Resend] button:
-//     → POST /api/auth/consent/send  (re-sends to same parent_email stored on students row)
-//     → On success: toast "Approval request resent"
-//     → Button disabled for 60 seconds after click (same cooldown pattern as verify-email)
-//
-//   [Wrong email? Change it] link:
-//     → navigates to /onboarding/consent
-//     → student can enter a new parent email
-//     → submitting /onboarding/consent will overwrite students.parent_email
-//       and re-send the consent email
+//   [Resend] button → POST /api/auth/consent/send (disabled 60s after click)
+//   [Wrong email? Change it] → /onboarding/consent
 
-// Polling:
-//   Poll GET /api/auth/me (or use supabase realtime on students row) every 30s
-//   If account_status changes to 'active' → redirect to /onboarding/subjects
+// Polling: every 30s check account_status; if 'active' → redirect /onboarding/subjects
 ```
 
 ### `/onboarding/consent` — Specification
@@ -1067,24 +1141,17 @@ Scenario: Forgot password link on signin
 // Fields: parent_email (email input, required)
 // On submit: POST /api/auth/consent/send
 // Success: redirect to /onboarding/awaiting-consent
-// Error — invalid email: "Please enter a valid email address"
-// Error — API error: "Something went wrong. Please try again."
-// Copy:
-//   Heading: "One more step"
-//   Body: "Because you're under 18, a parent or guardian needs to approve your account."
-//   Button: "Send Approval Request"
 ```
 
 ### `/verify-email` — Specification
 
 ```typescript
 // Client component
-// Copy:
-//   Heading: "Check your inbox"
-//   Body: "We sent a verification link to [masked student email]."
-//   Resend button: supabase.auth.resend({ type: 'signup', email })
-//   Cooldown: 60s disabled after click, countdown shown
-//   onAuthStateChange: if SIGNED_IN fires → redirect based on account_status
+// Heading: "Check your inbox"
+// Body: "We sent a verification link to [masked student email]."
+// Resend button: supabase.auth.resend({ type: 'signup', email })
+// Cooldown: 60s disabled after click
+// onAuthStateChange: if SIGNED_IN fires → redirect based on account_status
 ```
 
 ### Static Pages
@@ -1131,7 +1198,7 @@ Scenario: Wrong email link returns to consent form
 Scenario: Approved student auto-redirected from awaiting-consent
   Given student on /onboarding/awaiting-consent
   And parent has approved (account_status = 'active')
-  When page detects status change (poll or realtime)
+  When page detects status change
   Then redirect = /onboarding/subjects
 
 Scenario: verify-email resend cooldown
@@ -1150,4 +1217,4 @@ Scenario: Already-used consent link
 ---
 
 *Sprint 1 Technical Stories | Epic 1: Foundation & Legal | AceOS v1.0*
-*Last updated: 2026-04-27 (Session 7) — T1.4 state machine updated: generateLink → Resend handoff made explicit (extract properties.action_link, pass to Resend, disable Supabase auto-send). New Gherkin scenario added: "generateLink called and action_link passed to Resend". Implementation notes expanded with exact extraction pattern and Supabase dashboard config requirement.*
+*Last updated: 2026-04-27 (Session 8) — T1.1 synced to two-log architecture: consent_log = legal docs only (document_type, version, accepted_at); auth_event_log added (auth lifecycle events). student_subjects normalized to FK model (subject_id → subjects, product_id → products). T1.4 state machine and acceptance criteria updated: age_verified_adult + consent lifecycle events now write to auth_event_log. Two-log architecture rule box added.*
