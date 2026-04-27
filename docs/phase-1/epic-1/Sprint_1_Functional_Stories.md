@@ -34,18 +34,19 @@
 ### User Flow
 1. User visits `/signup`.
 2. User enters: first name, last name, email address, password, date of birth.
-3. User clicks **Create Account**.
-4. System validates all fields (see acceptance criteria).
-5. System creates a Supabase Auth user and a matching `students` row.
-6. System sends an email verification link.
-7. User is redirected to the email verification holding screen.
+3. User checks the Privacy Policy & ToS checkbox.
+4. User clicks **Create Account**.
+5. System validates all fields.
+6. System creates a Supabase Auth user and a matching `students` row.
+7. **All users** are redirected to `/verify-email` first.
+8. After verifying email: adults → `/onboarding/subjects`; minors → `/onboarding/consent`.
 
 ### Acceptance Criteria
 
 **AC-01 · Valid registration succeeds**
 - Given a user submits all required fields with a valid email, a password ≥ 8 characters containing at least one uppercase letter and one number, and a valid date of birth
 - When they click **Create Account**
-- Then a new account is created, an email verification link is sent, and the user sees the "Check your email" screen
+- Then a new account is created, an email verification link is sent, and the user sees the `/verify-email` holding screen
 
 **AC-02 · Duplicate email is rejected**
 - Given an email address that already exists in the system
@@ -79,7 +80,7 @@
 
 ## S1-F-02 · Google OAuth Sign-Up & Sign-In ⏸ DESCOPED — SPRINT 2
 
-> **Decision — 2026-04-26 (Session 4):** Descoped from Sprint 1 to Sprint 2. Reason: requires a Google Cloud project and OAuth 2.0 credentials to be created before any code can be written. This is a calendar dependency, not a code dependency, and it should not block Sprint 1 P0 delivery. See T1.4b in the technical stories for the full spec and the pre-implementation checklist that must be completed before Sprint 2 work begins.
+> **Decision — 2026-04-26 (Session 4):** Descoped from Sprint 1 to Sprint 2. Requires a Google Cloud project and OAuth 2.0 credentials before any code can be written. See T1.4b in the technical stories for the full spec and the pre-implementation checklist that must be completed before Sprint 2 work begins.
 
 **As a** student,
 **I want to** sign up or sign in using my Google account,
@@ -98,7 +99,7 @@
 - Given a Google account that has never signed into AceOS
 - When the user completes the Google OAuth flow
 - Then a new `students` row is created with name and email from Google profile
-- And the user is redirected to the complete-profile screen to provide DOB (Google does not return date of birth)
+- And the user is redirected to the complete-profile screen to provide DOB
 - And after completing the profile, the age gate flow runs as normal
 
 **AC-02 · Returning Google user reaches dashboard**
@@ -107,7 +108,7 @@
 - Then the user is redirected to `/dashboard` with their session restored
 
 **AC-03 · OAuth failure shows friendly error**
-- Given the Google OAuth flow fails (user cancels, network error, or Google returns an error)
+- Given the Google OAuth flow fails
 - When the flow returns to AceOS
 - Then the user sees: "Sign-in with Google failed. Please try again or use email instead."
 - And no account is created or modified
@@ -126,34 +127,40 @@
 **I want to** have a parental consent step in my sign-up,
 **so that** my parent can authorize my use of the platform in compliance with FERPA/COPPA requirements.
 
-### User Flow
-1. After account creation, system evaluates DOB.
-2. **If age ≥ 18:** Skip consent flow. Redirect to email verification.
-3. **If age < 18:**
-   a. Redirect student to `/onboarding/consent`.
-   b. Student enters parent/guardian email address.
-   c. System sends a consent email to the parent via Resend (`onboarding@resend.dev`) — see S1-F-09.
-   d. Student sees holding screen at `/onboarding/awaiting-consent`: "We've sent an email to [masked parent email]. Your account will be activated once they approve."
-   e. Student's account status is set to `pending_consent`.
-   f. Parent clicks **Approve** in the email → student's status changes to `active` → student can now sign in.
+> **Auth flow decision (Session 5):** Email verification happens FIRST for all users, including minors. A minor verifies their email, THEN enters the parent email on `/onboarding/consent`. This ensures the student email is valid before any parental consent request is sent.
+
+### User Flow (Minor)
+1. After account creation, minor is redirected to `/verify-email` (`account_status = pending_age_check`).
+2. Minor clicks email verification link → `email_verified = true`.
+3. Because `account_status = pending_age_check` → redirected to `/onboarding/consent`.
+4. Minor enters parent/guardian email and submits.
+5. System sends consent email via Resend (`onboarding@resend.dev`) — see S1-F-09.
+6. `account_status` updated to `pending_consent`.
+7. Minor redirected to `/onboarding/awaiting-consent` holding screen.
+8. Minor can resend consent email or correct the parent email from this screen.
+9. Parent clicks **Approve** → `account_status = active` → minor can now sign in and reach `/onboarding/subjects`.
+
+### User Flow (Adult)
+1. After account creation, adult is redirected to `/verify-email` (`account_status = active`).
+2. Adult clicks email verification link → redirected directly to `/onboarding/subjects`.
 
 ### Acceptance Criteria
 
-**AC-01 · Under-18 user is gated**
+**AC-01 · Under-18 user is gated after email verification**
 - Given a student whose DOB makes them under 18 at time of sign-up
-- When they complete account creation
-- Then they are redirected to `/onboarding/consent` before accessing any product features
-- And their account status is set to `pending_age_check` initially, then `pending_consent` after parent email is submitted
+- When they click their email verification link
+- Then they are redirected to `/onboarding/consent`
+- And their account status is `pending_age_check` (changes to `pending_consent` after they submit the parent email)
 
 **AC-02 · Over-18 user bypasses consent**
 - Given a student whose DOB makes them 18 or older
-- When they complete account creation
-- Then they are redirected directly to email verification
-- And their account status is set to `active`
+- When they click their email verification link
+- Then they are redirected directly to `/onboarding/subjects`
+- And their account status is `active`
 
 **AC-03 · Consent email is sent**
-- Given an under-18 student who enters a valid parent email
-- When they submit the parental consent screen
+- Given an under-18 student who enters a valid parent email on `/onboarding/consent`
+- When they submit the form
 - Then a consent email is delivered to the parent email address within 2 minutes
 - And the email contains an Approve button/link and a brief explanation of what AceOS is
 
@@ -170,7 +177,7 @@
 
 **AC-06 · Unapproved student cannot access features**
 - Given a student with `account_status = pending_consent`
-- When they attempt to navigate to any product page (dashboard, diagnostic, etc.)
+- When they attempt to navigate to any product page
 - Then they are redirected to `/onboarding/awaiting-consent`
 - And no product data is accessible
 
@@ -178,7 +185,24 @@
 - Given a parent who clicks **Decline** in the consent email
 - When the decline is processed
 - Then the student's account is soft-deleted (`account_status = declined`)
-- And the student receives an email: "Your account could not be activated. Please speak with your parent or guardian."
+- And the student receives an email: "Your account could not be activated."
+
+**AC-08 · Student can resend consent email from waiting screen**
+- Given a student on `/onboarding/awaiting-consent`
+- When they click **Resend**
+- Then the consent email is re-sent to the same parent email
+- And a success message is shown: "Approval request resent"
+
+**AC-09 · Student can correct parent email**
+- Given a student on `/onboarding/awaiting-consent`
+- When they click "Wrong email?"
+- Then they are navigated back to `/onboarding/consent` to re-enter the parent email
+
+**AC-10 · Declined user cannot access features or re-enter flow**
+- Given a student with `account_status = declined`
+- When they attempt to sign in
+- Then they see: "Your account could not be activated. Please speak with your parent or guardian."
+- And they cannot access any product page
 
 ---
 
@@ -189,21 +213,21 @@
 **so that** I can confirm I own the address and protect my account.
 
 ### User Flow
-1. After email sign-up, user is shown "Check your email" screen at `/verify-email`.
+1. After email sign-up, **all users** are shown the `/verify-email` holding screen.
 2. User opens verification email and clicks the verification link.
 3. System marks `email_verified = true`.
-4. User is redirected based on account status:
+4. User is redirected based on `account_status`:
    - `active` (adult) → `/onboarding/subjects`
    - `pending_age_check` (minor, not yet submitted parent email) → `/onboarding/consent`
    - `pending_consent` (minor, parent email already submitted) → `/onboarding/awaiting-consent`
 
 ### Acceptance Criteria
 
-**AC-01 · Verification link activates account**
+**AC-01 · Verification link marks email verified and routes correctly**
 - Given a student who has not yet verified their email
 - When they click the verification link in the email
 - Then `email_verified` is set to `true` in the database
-- And they are redirected to the correct next step based on their account status
+- And they are redirected to the correct next step based on their account_status (see flow above)
 
 **AC-02 · Expired link shows helpful message**
 - Given a verification link that is more than 24 hours old
@@ -213,8 +237,8 @@
 
 **AC-03 · Unverified user cannot access features**
 - Given a student who has not verified their email
-- When they attempt to sign in and navigate to any product page
-- Then they are redirected to the "/verify-email" holding screen
+- When they attempt to navigate to any product page
+- Then they are redirected to `/verify-email`
 - And no product data is accessible
 
 **AC-04 · Resend works correctly**
@@ -233,16 +257,10 @@
 
 ### User Flow
 1. After verification (and consent if under 18), user arrives at `/onboarding/subjects`.
-2. Screen shows a grid of the 6 available AP subjects with icons:
-   - AP Chemistry
-   - AP Biology
-   - AP US History
-   - AP World History
-   - AP English Language & Composition
-   - AP Calculus AB
-3. Student selects 1–4 subjects (tap to select/deselect, visual highlight on selection).
+2. Screen shows a grid of the 6 available AP subjects.
+3. Student selects 1–4 subjects.
 4. Student clicks **Continue**.
-5. System creates `student_subjects` rows for each selected subject, with `mastery_data` initialized as an empty object `{}` (mastery scoring defined in Sprint 2).
+5. System creates `student_subjects` rows with `mastery_data = {}` and sets `onboarding_completed = true`.
 6. Student is redirected to the dashboard.
 
 ### Acceptance Criteria
@@ -277,8 +295,8 @@
 - And the dashboard displays their selected subjects
 
 **AC-06 · Onboarding cannot be revisited**
-- Given a student who has already completed onboarding
-- When they navigate directly to `/onboarding/subjects`
+- Given a student who has already completed onboarding (`onboarding_completed = true`)
+- When they navigate directly to any `/onboarding/*` route
 - Then they are redirected to `/dashboard`
 
 ---
@@ -291,12 +309,8 @@
 
 ### User Flow
 1. Student arrives at `/dashboard` after onboarding.
-2. Dashboard shows:
-   - Welcome message with first name
-   - Cards for each enrolled AP subject showing subject name and "Diagnostic not yet taken" status
-   - A prominent CTA: **Start Your Diagnostic** (shows "Coming soon" in Sprint 1)
-   - Navigation bar with: Dashboard, Practice, FRQ, Profile
-3. Navigation bar is visible on all authenticated pages.
+2. Dashboard shows welcome message, subject cards, and a "Coming soon" diagnostic CTA.
+3. Navigation bar is visible on all authenticated pages and NOT visible on unauthenticated pages.
 
 ### Acceptance Criteria
 
@@ -315,7 +329,7 @@
 - Given any authenticated student on any protected page
 - When the page loads
 - Then the navigation bar is visible with Dashboard, Practice, FRQ, and Profile links
-- And it is NOT visible on unauthenticated pages (/signin, /signup, /forgot-password, etc.)
+- And it is NOT visible on unauthenticated pages (/signin, /signup, /verify-email, /forgot-password, etc.)
 
 **AC-04 · Welcome message uses first name**
 - Given a student whose first name is "Maria"
@@ -354,11 +368,16 @@
 - And they are redirected to `/signin`
 - And attempting to navigate to `/dashboard` redirects back to `/signin`
 
-**AC-04 · Expired session redirects gracefully**
+**AC-04 · Expired session redirects to correct destination**
 - Given a student whose session token has expired
 - When they attempt to access any protected page
 - Then they are redirected to `/signin` with a message: "Your session has expired. Please sign in again."
-- And after signing in, they are returned to the page they attempted to access (unless that page was an onboarding route they have already completed, in which case they are sent to `/dashboard`)
+- And after signing in, the redirect destination is determined by account_status:
+  - `active` + `onboarding_completed = true` → the page they tried to access (unless it was an `/onboarding/*` route, in which case → `/dashboard`)
+  - `active` + `onboarding_completed = false` → `/onboarding/subjects`
+  - `pending_consent` → `/onboarding/awaiting-consent`
+  - `pending_age_check` → `/onboarding/consent`
+  - `declined` → `/signin` with declined-account message (no redirect to product)
 
 ---
 
@@ -368,10 +387,12 @@
 **I want to** read and accept the Privacy Policy and Terms of Service,
 **so that** I understand how my data is used and consent to the platform rules.
 
+> **Sprint 1 legal page strategy (Session 5 decision):** `/legal/privacy-policy` and `/legal/terms-of-service` will render placeholder pages in Sprint 1. Real FERPA-compliant content must be written and deployed **before launch (public beta)**. This is captured as a pre-launch blocker — see Open Actions below.
+
 ### User Flow
 1. On the sign-up form, checkbox: "I agree to the [Privacy Policy] and [Terms of Service]" (links open in new tab).
 2. Checkbox must be ticked before the form submits.
-3. Acceptance is logged with timestamp and document version number (`"1.0"` for Sprint 1).
+3. Acceptance is logged with timestamp and `document_version = "1.0"`.
 
 ### Acceptance Criteria
 
@@ -389,8 +410,16 @@
 **AC-03 · Policy links are accessible**
 - Given a user on the sign-up form
 - When they click the Privacy Policy or Terms of Service link
-- Then the correct document opens in a new tab (`/legal/privacy-policy` or `/legal/terms-of-service`)
+- Then the correct page opens in a new tab (`/legal/privacy-policy` or `/legal/terms-of-service`)
 - Without navigating away from the sign-up form
+
+**AC-04 · Legal pages load without authentication**
+- Given an unauthenticated user
+- When they navigate to `/legal/privacy-policy` or `/legal/terms-of-service`
+- Then the page loads and displays content (placeholder or real)
+- And no sign-in redirect occurs
+
+> ⚠️ **Pre-launch blocker:** Legal page content is placeholder in Sprint 1. Real FERPA-compliant Privacy Policy and ToS must be reviewed and deployed before any public or beta users are onboarded. See Open Pre-Launch Actions.
 
 ---
 
@@ -419,19 +448,19 @@
 - Given an under-18 student who submits the parental consent screen with a valid parent email
 - When the form is submitted
 - Then the consent email arrives in the parent's inbox within 2 minutes
+- And is sent from `onboarding@resend.dev`
 
 **AC-02 · Email content is correct**
 - Given a consent email sent for student "Alex"
 - Then the subject line contains "Alex"
 - And the email body contains both an Approve and a Decline action
 - And the Privacy Policy link is present and functional
-- And the email is sent from `onboarding@resend.dev`
 
 **AC-03 · Approval link expires after 7 days**
 - Given a parent consent link that is more than 7 days old
 - When the parent clicks Approve
-- Then they are shown the expired link page: "This approval link has expired. [Student's first name] can log in and request a new one."
-- And the student's account status remains `pending_consent` (unchanged)
+- Then they are shown: "This approval link has expired. [Student's first name] can log in and request a new one."
+- And the student's account status remains `pending_consent`
 
 **AC-04 · Approval link is single-use**
 - Given a parent who has already clicked Approve
@@ -464,7 +493,7 @@
 **AC-02 · Unregistered email shows no account hint**
 - Given a user who enters an email that does not exist in the system
 - When they submit the form
-- Then the same success message is shown as for a valid email: "If an account exists, we've sent a reset link"
+- Then the same success message is shown: "If an account exists, we've sent a reset link"
 - And no error reveals whether the email is registered
 
 **AC-03 · Reset link expires after 1 hour**
@@ -485,5 +514,18 @@
 
 ---
 
+## Open Pre-Launch Actions
+
+> These are NOT Sprint 1 blockers. They are blockers for **public/beta launch**. Capture these now so they don't get lost.
+
+| Action | Owner | Blocks |
+|---|---|---|
+| Write FERPA-compliant Privacy Policy (replace Sprint 1 placeholder) | Dhruv / Legal | Public launch |
+| Write Terms of Service with minor provisions (replace Sprint 1 placeholder) | Dhruv / Legal | Public launch |
+| Switch Resend sending domain to `hello@aceos.app` (DNS + verification) | Dhruv | Sprint 2 email upgrade |
+| Create Google Cloud project + OAuth 2.0 credentials | Dhruv | S1-F-02 (Sprint 2) |
+
+---
+
 *Sprint 1 Functional Stories | AceOS Phase 1 · Epic 1 | April 2026 | Internal*
-*Last updated: 2026-04-26 (Session 4) — S1-F-02 descoped to Sprint 2. S1-F-05 mastery_data terminology aligned. S1-F-06 AC-03 NavBar scope clarified. S1-F-07 AC-04 redirect guard added. S1-F-08 consent_log field names + document_version aligned. S1-F-09 sending address set to onboarding@resend.dev. S1-F-09 AC-03 expired copy aligned with T1.12.*
+*Last updated: 2026-04-26 (Session 5) — G1: minor flow fixed (email verify first, then parent email). G2: resend + correct-email ACs added to S1-F-03. G3: legal placeholder strategy documented. G4: S1-F-07 AC-04 full state-machine redirect defined. G5: S1-F-05 AC-06 guard extended to full /onboarding/* namespace. Pre-launch actions table added.*
