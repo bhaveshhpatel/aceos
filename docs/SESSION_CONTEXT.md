@@ -1,6 +1,6 @@
 # AceOS — Session Context
 
-> Last updated: 2026-04-26 (Session 2)
+> Last updated: 2026-04-26 (Session 3)
 > Update this file at the end of every session before taking a break.
 
 ---
@@ -27,77 +27,69 @@ AceOS is an AP exam prep platform. MVP product: **score-boost-ap**.
 
 | ID | Story | Status | Notes |
 |---|---|---|---|
-| S1-F-01 | Email Sign-Up | ✅ Done | Merged to main. Signup → `students` insert + `consent_log` insert + `generateLink()`. Redirects to `/verify-email`. |
-| S1-F-02 | Google OAuth Sign-Up & Sign-In | 🔲 Not started | Needs Google Cloud OAuth app. Supabase provider not enabled yet. |
-| S1-F-03 | Age Gate & Parental Consent Flow | 🔲 Next after email | Blocked on S1-F-09 (email delivery). age gate branching logic exists in signup route. |
-| S1-F-04 | Email Verification | 🔲 Not started | `generateLink()` called but no email sent. Blocked on Resend wiring. |
-| S1-F-05 | Student Onboarding: AP Subject Selection | 🔲 Not started | |
-| S1-F-06 | Student Dashboard Shell | 🔲 Not started | |
-| S1-F-07 | Session Persistence & Sign-Out | 🔲 Not started | Supabase session handling exists via middleware but sign-out not built. |
-| S1-F-08 | Privacy Policy & ToS Acceptance | ✅ Partial | Checkbox exists on signup form. `consent_log` rows written. Legal pages (`/legal/*`) not built yet → return 404. |
-| S1-F-09 | Parental Consent Email Delivery | 🔲 Not started | Requires Resend wiring (S1-F-02 equivalent). |
-| S1-F-10 | Account Recovery (Forgot Password) | 🔲 Not started | `/forgot-password` returns 404. |
+| S1-F-01 | Email Sign-Up | ⚠️ Needs Validation | Merged to main. Signup → `students` insert + `consent_log` insert + `generateLink()`. Redirects to `/verify-email`. **Must validate against T1.1 + T1.4 before moving to S1-F-04.** |
+| S1-F-02 | Google OAuth Sign-Up & Sign-In | 🔲 Not started | Needs Google Cloud OAuth app. Supabase provider not enabled. T1.4b not yet written. |
+| S1-F-03 | Age Gate & Parental Consent Flow | 🔲 Not started | Covered by T1.4. Blocked on Resend wiring (S1-F-09). |
+| S1-F-04 | Email Verification | 🔲 Not started | Covered by T1.4. `generateLink()` called but no email sent. Blocked on Resend wiring. **Next story after S1-F-01 validation.** |
+| S1-F-05 | Student Onboarding: AP Subject Selection | 🔲 Not started | Covered by T1.5. |
+| S1-F-06 | Student Dashboard Shell | 🔲 Not started | Covered by T1.10 (new). |
+| S1-F-07 | Session Persistence & Sign-Out | 🔲 Not started | Covered by T1.9 (new). |
+| S1-F-08 | Privacy Policy & ToS Acceptance | ⚠️ Partial | Checkbox + consent_log rows written (T1.4 done). Legal pages (`/legal/*`) return 404 (T1.6 not started). |
+| S1-F-09 | Parental Consent Email Delivery | 🔲 Not started | Covered by T1.4. Requires Resend wiring. |
+| S1-F-10 | Account Recovery (Forgot Password) | 🔲 Not started | Covered by T1.11 (new). `/forgot-password` returns 404. |
 
 ### Technical Stories (`docs/phase-1/epic-1/Sprint_1_Technical_Stories.md`)
 
 | ID | Story | Status | Notes |
 |---|---|---|---|
-| T1.1 | Supabase Schema Bootstrap | ✅ Partial | `students` + `consent_log` tables exist and work. Schema diverges from spec (see Schema Drift section below). |
-| T1.2 | Vercel Deployment Pipeline | ✅ Done | `deploy.yml` uses Vercel CLI API approach (not `amondnet/vercel-action` as specced — works better). `test.yml` and `preview.yml` also exist. |
+| T1.1 | Supabase Schema Bootstrap | ⚠️ Updated | Schema updated to reflect `students` + `consent_log` reality. `student_subjects` table not yet created. RLS policies need verification. |
+| T1.2 | Vercel Deployment Pipeline | ✅ Done | Working. Uses Vercel CLI API. |
 | T1.3 | LiteLLM Gateway Configuration | 🔲 Not started | Sprint 2+. |
-| T1.4 | Authentication System Implementation | ✅ Partial | Email signup done. Google OAuth not started. Parental consent email not wired. Consent token/callback not built. |
+| T1.4 | Authentication System Implementation | ✅ Updated | State machine corrected. Consent token expiry fixed to 7 days. Email verification + forgot password scenarios added. Covers S1-F-01, 03, 04, 09, 10. |
 | T1.5 | Subject Selection Screen | 🔲 Not started | |
 | T1.6 | Privacy Policy & ToS Pages | 🔲 Not started | Routes return 404. |
-| T1.7 | Profile Auto-Creation Trigger | ⚠️ Diverged | Spec says `profiles` table + DB trigger. Actual: `students` table inserted manually via API route. Trigger does NOT exist. Decision needed: align to spec or keep current approach. |
-| T1.8 | Error Boundary & Graceful Degradation | 🔲 Not started | Raw Supabase errors may surface. |
+| T1.7 | Profile Auto-Creation Trigger | ⛔ Superseded | Decision made: manual insert in API route. Trigger will NOT be implemented. See T1.7 in doc for full rationale. |
+| T1.8 | Error Boundary & Graceful Degradation | 🔲 Not started | |
+| T1.9 | Session Management & Sign-Out | ✅ Written (new) | Covers S1-F-07. Full middleware spec, sign-out API route, expired session redirect. |
+| T1.10 | Student Dashboard Shell | ✅ Written (new) | Covers S1-F-06. Server component architecture, NavBar spec, subject card spec, empty state. |
+| T1.11 | Account Recovery (Forgot Password) | ✅ Written (new) | Covers S1-F-10. Full page/route map, Zod schema, Supabase native reset flow. |
 
 ---
 
-## ⚠️ Schema Drift — Needs Decision
+## ✅ Schema Drift — RESOLVED
 
-The technical spec (`T1.1`, `T1.7`) defines a `profiles` table with a DB trigger for auto-creation.
-Actual implementation uses a `students` table with manual insertion in the API route.
+Decision made Session 3: **spec updated to match implementation.** The `students` table + manual insert approach is the canonical implementation. `profiles` table and DB trigger (T1.7) are superseded.
 
-| Spec | Actual | Impact |
-|---|---|---|
-| Table: `profiles` | Table: `students` | All queries reference wrong table name if spec is followed |
-| Column: `parental_consent_status` | Column: `account_status` | Values also differ (`pending` vs `pending_age_check`) |
-| Column: `is_minor` (computed) | Not present | No DB-level minor flag |
-| Table: `consent_audit_log` | Table: `consent_log` | Column names also differ |
-| Auto-creation via DB trigger | Manual insert in API route | If trigger is added later, double-insert risk |
-
-**Decision needed at start of next session:** Do we refactor to align with spec, or update the spec to match implementation?
-Recommendation: update spec to match implementation — the manual insert approach is simpler and more testable.
+| Spec (old) | Actual (canonical) |
+|---|---|
+| Table: `profiles` | Table: `students` |
+| Column: `parental_consent_status` | Column: `account_status` |
+| Values: `pending / granted / denied / not_required` | Values: `pending_age_check / pending_consent / active / declined / suspended` |
+| Column: `is_minor` (computed) | Not present — age computed at runtime in `getAgeFromDob()` |
+| Table: `consent_audit_log` | Table: `consent_log` |
+| Auto-creation via DB trigger | Manual insert in `app/api/auth/signup/route.ts` |
 
 ---
 
-## What Was Done This Session
+## 🔴 Immediate Next Actions (Session 4)
 
-### Infrastructure Fixes
-- Fixed Vercel auto-deploy: Vercel GitHub App was not creating webhooks. Full uninstall/reinstall fixed it.
-- Added `deploy.yml` — deploys to Vercel via CLI API on push to main (after tests pass).
-- Added `app/not-found.tsx` — fixed Next.js build failure on `/_not-found` page collection.
-- Fixed `NEXT_PUBLIC_APP_URL` in Vercel env — was missing `https://` prefix, causing `new URL()` to throw.
-- Fixed `middleware.ts` — `/api/auth` was missing from `PUBLIC_PATHS`, causing signup POST → 405.
-
-### S1-F-01 — Email Sign-Up (✅ Complete)
-- Signup flow working end-to-end in production.
-- Form: first name, last name, email, password, DOB, ToS checkbox.
-- API route creates: Supabase Auth user → `students` row → 2 `consent_log` rows → `generateLink()` call.
-- Redirects to `/verify-email` on success.
-- **Verification email NOT sent** — `generateLink()` generates link only. Resend not wired. This is S1-F-04/S1-F-09.
-
-### Test Debt Payoff
-- PR #3 merged: `tests/unit/auth/middleware.test.ts` — 20 cases for `isPublicPath()` logic.
-- Confirmed existing tests cover: age gate branching (`pending_age_check` vs `active`), `consent_log` insertion, rollback on failure, Zod schema validation.
+1. **Validate S1-F-01** against T1.1 + T1.4 using the checklist in `Story_Coverage_Map.md`
+   - Check DB column shape of actual `students` rows in Supabase
+   - Check RLS policies are actually applied
+   - Check `consent_log` event_types being written
+   - Fix anything that doesn’t match before moving on
+2. **Wire up Resend** — S1-F-04 / S1-F-09
+   - Branch: `feat/s1-f04-s1-f09-email`
+   - Decide sending domain first: `onboarding@resend.dev` (immediate) or custom domain (correct but needs DNS)
+   - Read T1.4 in full before writing a single line of code
+3. **Create `student_subjects` table** (T1.1 gap) before S1-F-05 work begins
 
 ---
 
-## Open Questions / Decisions Needed
+## Open Questions
 
-1. **Schema drift**: Align DB schema to spec (`profiles` + trigger) or update spec to match implementation (`students` + manual insert)? Recommendation: update spec.
-2. **Resend sending domain**: Verified custom domain (e.g. `hello@aceos.app`) or `onboarding@resend.dev` for now? Needed before S1-F-04/S1-F-09.
-3. **Google OAuth**: Needs Google Cloud project with OAuth 2.0 credentials. Redirect URI: `https://olybgkhggqnmrfcjjojy.supabase.co/auth/v1/callback`. Not blocking current work.
+1. **Resend sending domain**: `onboarding@resend.dev` to unblock now, or custom domain (e.g. `hello@aceos.app`)? DNS verification needed for custom domain.
+2. **Google OAuth (S1-F-02)**: Still needs a Google Cloud project + OAuth 2.0 credentials. Redirect URI: `https://olybgkhggqnmrfcjjojy.supabase.co/auth/v1/callback`. Not blocking current work.
 
 ---
 
@@ -105,12 +97,12 @@ Recommendation: update spec to match implementation — the manual insert approa
 
 | Issue | Status | Notes |
 |---|---|---|
-| Google OAuth: `unsupported provider` (400) | 🔲 Open | Google provider not enabled in Supabase. Not Sprint 1 priority. |
 | Verification email not sent after signup | 🔲 Open | By design — Resend not wired. S1-F-04 fixes this. |
-| `/forgot-password` returns 404 | 🔲 Open | Page not built yet. S1-F-10. |
+| `/forgot-password` returns 404 | 🔲 Open | Page not built. S1-F-10 / T1.11. |
 | `/legal/*` returns 404 | 🔲 Open | Legal pages not built. T1.6. |
-| No DB trigger for profile auto-creation | 🔲 Open | Manual insert in API route works but diverges from T1.7 spec. |
-| Error boundaries not implemented | 🔲 Open | Raw errors may surface. T1.8. |
+| `student_subjects` table not created | 🔲 Open | Needed before S1-F-05. |
+| RLS policies not verified in production | 🔲 Open | S1-F-01 validation step will catch this. |
+| Google OAuth: `unsupported provider` (400) | 🔲 Open | Not Sprint 1 priority. |
 
 ---
 
@@ -122,7 +114,7 @@ Recommendation: update spec to match implementation — the manual insert approa
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Set | |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ Set | Required for `auth.admin.*` calls. Never expose to browser. |
 | `NEXT_PUBLIC_APP_URL` | ✅ Set | `https://aceos-ai.vercel.app` (must include `https://`) |
-| `RESEND_API_KEY` | ✅ Set | Key exists in Vercel. Resend not wired up in code yet. |
+| `RESEND_API_KEY` | ✅ Set | Key exists in Vercel. Not yet wired in code. |
 | `VERCEL_TOKEN` | ✅ Set | GitHub Actions secret |
 | `VERCEL_ORG_ID` | ✅ Set | GitHub Actions secret |
 | `VERCEL_PROJECT_ID` | ✅ Set | GitHub Actions secret |
@@ -156,10 +148,8 @@ Recommendation: update spec to match implementation — the manual insert approa
 ## How to Resume in a New Session
 
 1. **Read this file first**
-2. Read `docs/phase-1/epic-1/Sprint_1_Functional_Stories.md` for story specs
-3. Read `docs/phase-1/epic-1/Sprint_1_Technical_Stories.md` for technical specs
-4. Address the schema drift decision (see ⚠️ section above)
-5. **Next story: S1-F-04 / S1-F-09 — wire up Resend transactional email**
-6. Branch: `feat/s1-f04-email-verification`
-7. Write tests first — mock Resend SDK, test dispatch, template rendering, error handling
-8. Ask Dhruv: verified Resend domain or `onboarding@resend.dev` for now?
+2. Read `docs/phase-1/epic-1/Story_Coverage_Map.md` — this is the canonical source for what to work on next
+3. For each story being picked up, read the linked technical story before writing any code
+4. **First task: validate S1-F-01** using the checklist in `Story_Coverage_Map.md`
+5. After validation: move to `feat/s1-f04-s1-f09-email` — wire Resend for email verification + parental consent
+6. Confirm Resend sending domain with Dhruv before starting email work
