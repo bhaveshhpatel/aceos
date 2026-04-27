@@ -45,7 +45,10 @@
 2. ⚠️ VALIDATE — S1-F-01  Validate implementation against T1.1 + T1.4 (checklist below)
 3. 🔲 NEXT     — S1-F-04 + S1-F-09  Wire Resend (email verification + parental consent email)
                               Branch: feat/s1-f04-s1-f09-email
-                              Decide sending domain first (onboarding@resend.dev vs custom)
+                              NOTE (Session 7): generateLink → Resend handoff lives in
+                              app/api/auth/signup/route.ts — specced and owned by S1-F-04.
+                              S1-F-01 implementation must NOT auto-send via Supabase;
+                              Supabase Auth email sending must be disabled in the dashboard.
 4. 🔲         — S1-F-03  Age gate UI — depends on Resend being wired (step 3) and T1.12 pages
                               Also build: /onboarding/consent + /onboarding/awaiting-consent (T1.12)
 5. 🔲         — S1-F-08  Legal pages — unblocked, no external dependencies
@@ -85,7 +88,8 @@
 | Adult signup inserts 3 consent_log rows | T1.4 Scenario 1 | tos_accepted (v1.0), privacy_policy_accepted (v1.0), age_verified_adult (NULL) | 🔲 |
 | consent_log document_version = '1.0' on legal events | T1.1 Scenario (new) | Both legal rows have document_version = '1.0' | 🔲 |
 | Minor signup sets account_status = 'pending_age_check' | T1.4 Scenario 2 | DB value confirmed | 🔲 |
-| Minor signup redirects to /onboarding/consent | T1.4 Scenario 2 | Not /verify-email | 🔲 |
+| Minor signup redirects to /verify-email (NOT /onboarding/consent) | T1.4 Scenario 2 — updated Session 5 | All users go to /verify-email first; /onboarding/consent comes after email verification | 🔲 |
+| generateLink called and action_link passed to Resend | T1.4 Scenario (new, Session 7) | supabase.auth.admin.generateLink called; properties.action_link passed to Resend; Supabase auto-send disabled | 🔲 |
 | Rollback deletes auth user on students insert failure | T1.4 Scenario 3 | No orphaned auth.users row | 🔲 |
 | Duplicate email returns 409 + EMAIL_ALREADY_EXISTS | T1.4 Scenario 4 | HTTP 409, structured error body | 🔲 |
 | Redirect lands on /verify-email for adults | S1-F-01 AC-01 | URL confirmed in browser | 🔲 |
@@ -97,6 +101,7 @@
 | Action | Owner | Blocks |
 |---|---|---|
 | Decide Resend sending domain (`onboarding@resend.dev` vs `hello@aceos.app`) | Dhruv | S1-F-04, S1-F-09 |
+| Disable Supabase Auth email sending in dashboard (Auth → Settings) | Dhruv | S1-F-04 — required before generateLink → Resend handoff works correctly |
 | Create Google Cloud project + OAuth 2.0 credentials (see T1.4b checklist) | Dhruv | S1-F-02 (Sprint 2) |
 | Write FERPA-compliant Privacy Policy text | Dhruv / Legal | S1-F-08 / T1.6 |
 | Write Terms of Service text | Dhruv / Legal | S1-F-08 / T1.6 |
@@ -110,7 +115,7 @@
 | ✅ Done | Complete and verified |
 | ⚠️ Partial / Needs validation | Started but not complete or not yet verified |
 | 🔲 Not started | No work done yet |
-| ⏔ Blocked | Cannot proceed until dependency resolved |
+| ⏴ Blocked | Cannot proceed until dependency resolved |
 | ⏸ Descoped | Intentionally deferred to next sprint |
 
 ---
@@ -123,7 +128,10 @@
 | Session 2 | 2026-04-26 | S1-F-01 (done), PR #3 merged | Signup flow E2E, middleware tests |
 | Session 3 | 2026-04-26 | — | Schema drift resolved. T1.1, T1.4 updated. T1.7 superseded. T1.9, T1.10, T1.11 written. Coverage map created. |
 | Session 4 | 2026-04-26 | — | Agent review: 8 gaps found and fixed. T1.4b written + descoped. T1.12 written (new). T1.1 mastery_data added. T1.5 max-4 fixed. T1.9 redirect guard added. T1.10 protected route group specced. T1.4 document_version convention defined. Implementation order documented. |
+| Session 5 | 2026-04-26 | — | PSE × PPM deliberation on S1-F-01. AC-03b, AC-05b, AC-05c, AC-06 (expanded), AC-07 added. Minor flow corrected: email verify first, then consent. T1.4 state machine updated (G1). T1.6 placeholder strategy added (G3). T1.9 full redirect matrix + declined rule (G4, G9). T1.10 /onboarding/* namespace guard (G5). T1.1 parent_email column (G6). T1.4 approve/deny routes specced (G7). T1.1 consent_log index (G8). T1.4 race guard (G10). CONSENT_JWT_SECRET separated. |
+| Session 6 | 2026-04-26 | — | PSE × PPM deliberation on S1-F-03. AC-01b added (pending_age_check → pending_consent transition). AC-03 updated (Decline link — COPPA requirement). AC-03b added (server-side parent email validation). AC-07 rewritten (FERPA hard-delete, explicit deleteUser). AC-09b added (parent_email overwrite). G5/G7 rejected. |
+| Session 7 | 2026-04-27 | — | S1-F-04 treated as S1-F-04. S1-F-01 AC-01 boundary note added: email delivery owned by S1-F-04. S1-F-04 AC-01 rewritten to own generateLink → Resend handoff. T1.4 state machine and implementation notes updated with explicit extraction of properties.action_link. New Gherkin scenario added. Supabase auto-send disable requirement documented. Stale validation checklist row corrected (minor redirect). |
 
 ---
 
-*Story Coverage Map | AceOS Phase 1 · Epic 1 | Last updated: 2026-04-26 (Session 4)*
+*Story Coverage Map | AceOS Phase 1 · Epic 1 | Last updated: 2026-04-27 (Session 7)*
