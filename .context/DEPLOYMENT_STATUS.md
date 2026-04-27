@@ -1,6 +1,6 @@
 # AceOS — Deployment Status
 
-> **Last Updated:** April 26, 2026
+> **Last Updated:** April 27, 2026
 > **Decision:** Deploy to Vercel at end of Sprint 1 Functional — not mid-sprint.
 
 ---
@@ -15,7 +15,7 @@
 | **Modal.com** | STEM code sandbox (Python execution) | Sprint 2 Functional |
 
 **Key decision rationale:**
-- There is no Railway service needed until Sprint 2 Functional. The current Next.js app is frontend + Supabase only.
+- There is no Railway service needed until Sprint 2 Functional.
 - Railway enters the picture when the FRQ grading service and AI diagnostic engine are built.
 - Vercel is the sole deployment target for Sprint 1.
 
@@ -29,7 +29,33 @@
 | Supabase | ✅ Live | `olybgkhggqnmrfcjjojy` — us-west-1 — ACTIVE_HEALTHY |
 | Railway | ❌ Not needed yet | Sprint 2 Functional |
 | Modal.com | ❌ Not deployed | Files in `modal_sandbox/` — manual CLI step |
-| GitHub Actions CI | ✅ Running | 59/59 tests green |
+| GitHub Actions CI | ✅ Running | **163/163 tests green** across 13 test files |
+
+---
+
+## Supabase Schema Status (as of April 27, 2026)
+
+### Migrations applied
+- `ai_usage_log`
+- `sprint_1_auth_schema`
+- `add_products_table_and_product_scoping`
+
+### RLS
+- ✅ Enabled on all 6 auth tables
+- `consent_log` + `auth_event_log`: INSERT + SELECT locked to `service_role` only (no client access)
+- `students`: SELECT + UPDATE own row only
+
+### Indexes confirmed
+- `idx_consent_log_student_id`
+- `idx_auth_event_log_student_id`
+
+### Enums confirmed live
+
+| Enum | Values |
+|---|---|
+| `account_status` | `pending_age_check`, `pending_consent`, `active`, `declined`, `suspended` |
+| `auth_event_type` | `age_verified_adult`, `email_verified`, `consent_email_sent`, `consent_granted`, `consent_denied`, `consent_revoked` |
+| `consent_document_type` | `privacy_policy`, `terms_of_service`, `parental_consent` |
 
 ---
 
@@ -56,6 +82,9 @@ SUPABASE_SERVICE_ROLE_KEY=<from Supabase dashboard → Settings → API — NEVE
 
 # App URL — set to your Vercel domain after first deploy
 NEXT_PUBLIC_APP_URL=https://your-project.vercel.app
+
+# Email (Resend) — required for S1-F-04 (email verification) + S1-F-09 (parental consent)
+RESEND_API_KEY=<from resend.com dashboard → API Keys>
 
 # Add these at Sprint 2 Functional (not needed for Sprint 1)
 # OPENAI_API_KEY=
@@ -107,6 +136,7 @@ Add these in GitHub → Settings → Secrets and Variables → Actions:
 | Secret | When | Source |
 |---|---|---|
 | `SUPABASE_SERVICE_ROLE_KEY` | Before first Vercel deploy | Supabase dashboard → Settings → API |
+| `RESEND_API_KEY` | S1-F-04 + S1-F-09 (email flows) | resend.com dashboard → API Keys |
 | `OPENAI_API_KEY` | Sprint 2 Functional | OpenAI dashboard |
 | `GROQ_API_KEY` | Sprint 2 Functional | Groq console |
 | `MODAL_SANDBOX_URL` | After Modal deploy | Printed by `modal deploy` |
@@ -165,5 +195,4 @@ When you're ready to use a custom domain (e.g. `aceos.app`):
 
 ---
 
-*AceOS Deployment Status | Version 1.0 | April 2026*
-*Update this file whenever deployment state changes.*
+*AceOS Deployment Status | April 27, 2026 | CI 163/163 green | Next deploy: end of Sprint 1 Functional*
