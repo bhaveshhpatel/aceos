@@ -13,6 +13,10 @@
  * Uses the service-role client so it can bypass RLS for the INSERT.
  * Never expose the service-role key to the browser.
  *
+ * Two-log architecture (T1.4):
+ *   consent_log      — legal document acceptance only (ToS, Privacy Policy)
+ *   auth_event_log   — auth lifecycle events (age_verified_adult, email_verified, etc.)
+ *
  * Error contract (T1.8 ApiError spec — SCREAMING_SNAKE_CASE):
  *   400 VALIDATION_ERROR      — Zod validation failed (fields contains per-field messages)
  *   409 EMAIL_ALREADY_EXISTS  — duplicate email
@@ -105,38 +109,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Log ToS + Privacy Policy consent (document_version: '1.0' per T1.4 spec)
     const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? null;
     const ua = request.headers.get('user-agent') ?? null;
+    const now = new Date().toISOString();
 
+    // 3. Log ToS + Privacy Policy legal acceptance to consent_log.
+    //    consent_log is for legal document acceptance ONLY.
+    //    Live schema: document_type (enum), version, accepted_at, ip_address, user_agent.
+    //    No event_type, document_version, or actor_email — those columns do not exist.
     await supabase.from('consent_log').insert([
       {
-        student_id:       userId,
-        event_type:       'tos_accepted',
-        document_version: '1.0',
-        actor_email:      email,
-        ip_address:       ip,
-        user_agent:       ua,
+        student_id:    userId,
+        document_type: 'terms_of_service',
+        version:       '1.0',
+        accepted_at:   now,
+        ip_address:    ip,
+        user_agent:    ua,
       },
       {
-        student_id:       userId,
-        event_type:       'privacy_policy_accepted',
-        document_version: '1.0',
-        actor_email:      email,
-        ip_address:       ip,
-        user_agent:       ua,
+        student_id:    userId,
+        document_type: 'privacy_policy',
+        version:       '1.0',
+        accepted_at:   now,
+        ip_address:    ip,
+        user_agent:    ua,
       },
     ]);
 
-    // 4. Log age verification event for adults (document_version: NULL per T1.4 spec)
+    // 4. Log age verification lifecycle event to auth_event_log (NOT consent_log).
+    //    auth_event_log is for auth lifecycle events.
+    //    Only written for adults (age >= 18) whose account_status is immediately 'active'.
     if (accountStatus === 'active') {
-      await supabase.from('consent_log').insert({
-        student_id:       userId,
-        event_type:       'age_verified_adult',
-        document_version: null,
-        actor_email:      email,
-        ip_address:       ip,
-        user_agent:       ua,
+      await supabase.from('auth_event_log').insert({
+        student_id:  userId,
+        event_type:  'age_verified_adult',
+        actor_email: email,
+        ip_address:  ip,
+        user_agent:  ua,
       });
     }
 
