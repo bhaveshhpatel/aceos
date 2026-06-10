@@ -61,9 +61,21 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // Session cookie is now set. Hand off to the server verify route
-        // which reads the session and applies the T1.4 state-machine routing.
-        router.replace('/auth/verify-session');
+        // Session cookie is now set. Call verify-session API to get the
+        // appropriate redirect destination based on account status.
+        fetch('/api/auth/verify-session')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.redirect_to) {
+              router.replace(data.redirect_to);
+            } else {
+              router.replace('/dashboard');
+            }
+          })
+          .catch((err) => {
+            console.error('[verify-session]', err);
+            router.replace('/dashboard');
+          });
       });
   }, [router]);
 

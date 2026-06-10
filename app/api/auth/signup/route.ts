@@ -86,7 +86,9 @@ export async function POST(request: NextRequest) {
 
     const userId        = authData.user.id;
     const age           = getAgeFromDob(dob);
-    const accountStatus = age >= 18 ? 'active' : 'pending_age_check';
+    // Initially all users are pending_email_verification. After email verification,
+    // the verify-session route will update this to 'active' (18+) or 'pending_age_check' (<18).
+    const accountStatus = 'pending_email_verification';
 
     // 2. Insert students row
     const { error: studentError } = await supabase.from('students').insert({

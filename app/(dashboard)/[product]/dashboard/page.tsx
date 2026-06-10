@@ -2,23 +2,57 @@
  * /[product]/dashboard
  * S1-F-06 — Student Dashboard Shell
  *
- * Product-scoped dashboard. Each product gets its own dashboard route:
- *   /score-boost-ap/dashboard
- *   /grade-guard/dashboard  (Phase 2)
- *   /study-sensei/dashboard (Phase 3)
- *
- * This is a shell. Full dashboard built in S1-F-06 batch.
+ * Product-scoped dashboard. Shows:
+ * - Student welcome screen
+ * - Selected AP subjects
+ * - Action cards (Diagnostic, Settings, Help)
+ * - Navigation menu for future features
  */
+
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { DashboardShell } from '@/components/features/dashboard/DashboardShell';
+import { DashboardContent } from '@/components/features/dashboard/DashboardContent';
 
 export const metadata: Metadata = {
   title: 'Dashboard — AceOS',
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = createClient();
+
+  // Get authenticated user
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    redirect('/signin');
+  }
+
+  // Get student profile
+  const { data: student, error: studentError } = await supabase
+    .from('students')
+    .select('first_name, last_name, account_status')
+    .eq('id', user.id)
+    .single();
+
+  if (studentError || !student) {
+    redirect('/signin');
+  }
+
+  // Redirect if not onboarded
+  if (student.account_status !== 'active') {
+    redirect('/onboarding/ap-calculus-ab/age-gate');
+  }
+
+  const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student';
+
   return (
-    <div className="text-center text-neutral-400 py-20">
-      Dashboard — coming in S1-F-06
-    </div>
+    <DashboardShell student_name={studentName}>
+      <DashboardContent student_name={studentName} />
+    </DashboardShell>
   );
 }
