@@ -23,6 +23,18 @@ export function cn(...inputs: ClassValue[]): string {
  *   - Birthday IS today (UTC)  → age >= 18 returns true  → adult
  *   - Birthday is tomorrow     → age is 17               → minor
  */
+/**
+ * Masks an email address for display (e.g., "j***@gmail.com").
+ */
+export function maskEmail(email: string): string {
+  if (!email || !email.includes('@')) return email;
+  const [local, domain] = email.split('@');
+  if (local.length <= 1) {
+    return `${local}***@${domain}`;
+  }
+  return `${local[0]}***@${domain}`;
+}
+
 export function getAgeFromDob(dob: string): number {
   // Parse dob as UTC midnight to avoid local-timezone date shifting.
   // e.g. '2008-04-26' on a UTC-7 machine must not become April 25.
