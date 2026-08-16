@@ -101,7 +101,6 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 text-slate-100">
-      {/* Bluebook Exam Top Navigation Bar */}
       <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-6 py-3">
         <div className="flex items-center space-x-4">
           <span className="rounded bg-indigo-600 px-2.5 py-1 text-xs font-bold tracking-wider uppercase text-white">
@@ -112,7 +111,6 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
           </span>
         </div>
 
-        {/* Section Timer */}
         <div className="flex items-center space-x-6">
           <div className="text-center">
             <span className="block text-xs font-medium uppercase text-slate-400">Time Remaining</span>
@@ -136,9 +134,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
         </div>
       </header>
 
-      {/* Main Workspace */}
       <div className="flex flex-1">
-        {/* Question & Option Panel */}
         <main className="flex flex-1 flex-col justify-between p-8">
           <div className="mx-auto max-w-3xl space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
@@ -184,7 +180,6 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
             </div>
           </div>
 
-          {/* Bottom Control Bar */}
           <div className="mx-auto flex w-full max-w-3xl justify-between border-t border-slate-800 pt-8">
             <button
               disabled={currentIdx === 0}
@@ -213,7 +208,6 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
           </div>
         </main>
 
-        {/* Right Palette Grid & Optional Scratchpad */}
         <aside className="w-80 border-l border-slate-800 bg-slate-950 p-6 space-y-6">
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -262,7 +256,6 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
         </aside>
       </div>
 
-      {/* Formula Sheet Reference Modal */}
       {showFormulaSheet && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-xl space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
