@@ -8,6 +8,7 @@ const { mockSupabase, mockCreateServerClient, mockCreateBrowserClient } = vi.hoi
     from: vi.fn(() => ({
       insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn() })) })),
       select: vi.fn(() => ({
+        single: vi.fn(() => ({ data: null, error: { message: 'Unauthorized' } })),
         eq: vi.fn(() => ({ single: vi.fn(() => ({ data: null, error: { message: 'Unauthorized' } })) })),
         limit: vi.fn(() => ({ single: vi.fn(() => ({ data: null, error: { message: 'Unauthorized' } })) })),
       })),
@@ -21,7 +22,7 @@ const { mockSupabase, mockCreateServerClient, mockCreateBrowserClient } = vi.hoi
 });
 
 vi.mock('@/lib/supabase/server', () => ({
-  createServerClient: mockCreateServerClient,
+  createClient: mockCreateServerClient,
 }));
 vi.mock('@/lib/supabase/client', () => ({
   createClient: mockCreateBrowserClient,
