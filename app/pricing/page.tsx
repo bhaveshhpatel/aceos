@@ -14,6 +14,7 @@ export default function PricingPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          {/* Free Starter Tier */}
           <div className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-800">
             <div className="space-y-4">
               <span className="inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-300">
@@ -41,6 +42,7 @@ export default function PricingPage() {
             </div>
           </div>
 
+          {/* Student Pro Tier */}
           <div className="relative flex flex-col justify-between rounded-2xl border-2 border-indigo-600 bg-white p-8 shadow-lg dark:bg-slate-800">
             <span className="absolute -top-3 right-6 rounded-full bg-indigo-600 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-white">
               Most Popular

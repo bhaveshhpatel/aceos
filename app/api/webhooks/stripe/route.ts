@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
+    // Mock processing Stripe webhook event
     if (body.type === 'checkout.session.completed') {
       const studentId = body.data?.object?.client_reference_id;
       if (studentId) {

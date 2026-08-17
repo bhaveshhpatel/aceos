@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
 
     const service = serviceClient();
 
+    // Log exam attempt in student_intelligence_profiles
     await service.from('student_intelligence_profiles').upsert(
       {
         student_id: user.id,

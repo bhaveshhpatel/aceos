@@ -23,6 +23,7 @@ export default function PostExamAnalyticsPage({ params }: { params: { subject_sl
           </h1>
         </div>
 
+        {/* Score Badge */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="flex flex-col items-center justify-center rounded-lg bg-indigo-50 p-6 text-center dark:bg-indigo-950/40">
             <span className="text-xs font-medium text-slate-500">AP Score Projection</span>
@@ -40,6 +41,7 @@ export default function PostExamAnalyticsPage({ params }: { params: { subject_sl
           </div>
         </div>
 
+        {/* Score Trend History */}
         <div className="space-y-4">
           <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Historical AP Score Trend</h2>
           <div className="space-y-3 rounded-lg border border-slate-200 p-4 dark:border-slate-700">
