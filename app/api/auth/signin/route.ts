@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const redirectTo = student?.onboarding_completed ? '/dashboard' : '/onboarding/age-gate';
+    const redirectTo = student?.onboarding_completed ? '/dashboard' : '/onboarding/subjects';
     return NextResponse.json({ success: true, redirectTo }, { status: 200 });
   } catch (err) {
     console.error('[POST /api/auth/signin]', err);
