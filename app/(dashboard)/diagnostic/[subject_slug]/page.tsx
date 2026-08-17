@@ -50,7 +50,6 @@ export default function DiagnosticQuizPage({ params }: { params: { subject_slug:
       if (q.type === 'mcq') {
         isCorrect = val === q.correct_option;
       } else if (q.type === 'numerical' && q.expected_value !== undefined) {
-        isCorrect = Math.abs(parseFloat(val) - q.expected_value) <= 0.1;
       }
       return {
         question_id: q.id,
