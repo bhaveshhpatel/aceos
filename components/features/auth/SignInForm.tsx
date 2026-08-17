@@ -54,7 +54,11 @@ function SignInFormInner() {
 
     if (!res.ok) {
       if (data.error === 'email_not_verified') {
-        router.push('/verify-email');
+        window.location.href = '/verify-email';
+        return;
+      }
+      if (data.error === 'pending_consent') {
+        window.location.href = '/onboarding/awaiting-consent';
         return;
       }
       setServerError(data.message ?? 'Something went wrong. Please try again.');
@@ -62,7 +66,7 @@ function SignInFormInner() {
     }
 
     const next = searchParams.get('next') ?? data.redirectTo ?? '/dashboard';
-    router.push(next);
+    window.location.href = next;
   }
 
   return (
