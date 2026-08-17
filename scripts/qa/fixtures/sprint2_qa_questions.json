@@ -1,0 +1,48 @@
+[
+  {
+    "id": "qa_001",
+    "subject": "AP US History",
+    "type": "frq",
+    "route": "frq_grading",
+    "prompt_key": "frq_humanities_grader",
+    "variables": {
+      "subject": "AP US History",
+      "frq_type": "LEQ",
+      "prompt": "Evaluate the extent to which industrialization changed American society between 1865 and 1900.",
+      "rubric": "Thesis/Claim (1 pt): Responds to the prompt with a historically defensible thesis that establishes a line of reasoning.",
+      "student_response": "Industrialization dramatically transformed American society through urbanization, labor conflict, and economic inequality."
+    }
+  },
+  {
+    "id": "qa_002",
+    "subject": "AP Calculus AB",
+    "type": "stem_mcq",
+    "route": "diagnostic_mcq",
+    "prompt_key": "mcq_evaluator",
+    "variables": {},
+    "stem_answer": {
+      "question_id": "qa_002",
+      "subject_type": "AP Calculus AB",
+      "student_answer": "12",
+      "correct_answer": "12",
+      "answer_type": "numerical",
+      "tolerance": 0.01
+    }
+  },
+  {
+    "id": "qa_003",
+    "subject": "AP Chemistry",
+    "type": "stem_mcq",
+    "route": "diagnostic_mcq",
+    "prompt_key": "mcq_evaluator",
+    "variables": {},
+    "stem_answer": {
+      "question_id": "qa_003",
+      "subject_type": "AP Chemistry",
+      "student_answer": "18.015",
+      "correct_answer": "18.015",
+      "answer_type": "numerical",
+      "tolerance": 0.01
+    }
+  }
+]
