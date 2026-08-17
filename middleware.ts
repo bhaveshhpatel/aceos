@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 const PUBLIC_PATHS = [
+  '/',
   '/signin',
   '/signup',
   '/verify-email',
@@ -24,6 +25,7 @@ const PUBLIC_PATHS = [
   '/reset-password',
   '/auth',
   '/legal',
+  '/pricing',
   '/api/auth',
   '/_next',
   '/favicon.ico',
