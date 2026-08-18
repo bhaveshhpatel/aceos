@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { SubjectSwitcher } from '@/components/SubjectSwitcher';
 
 const SAMPLE_EXAM_QUESTIONS = [
   {
@@ -110,6 +111,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
           <span className="text-sm font-semibold text-slate-300">
             {params.subject_slug.replace('-', ' ').toUpperCase()}
           </span>
+          <SubjectSwitcher currentSlug={params.subject_slug} basePath="/exam" />
         </div>
 
         {/* Section Timer */}

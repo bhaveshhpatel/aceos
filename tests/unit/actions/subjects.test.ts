@@ -16,11 +16,21 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     from: vi.fn((table: string) => {
+      if (table === 'products') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'prod-1' } }),
+            }),
+          }),
+        };
+      }
       if (table === 'subjects') {
         return {
           select: vi.fn(() => ({
             in: mockSelect,
           })),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
       if (table === 'student_subjects') {

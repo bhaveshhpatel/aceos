@@ -54,6 +54,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (student?.account_status === 'pending_age_check') {
+      return NextResponse.json({ success: true, redirectTo: '/onboarding/consent' }, { status: 200 });
+    }
+
     if (student?.account_status === 'declined') {
       return NextResponse.json(
         { error: 'account_declined', message: 'Your account could not be activated. Please speak with your parent or guardian.' },
