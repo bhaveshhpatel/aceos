@@ -28,8 +28,33 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
 
   const service = serviceClient();
 
-  // Fetch subjects by slugs from catalog table
-  const { data: subjects, error: subError } = await service
+  // Ensure default product row exists
+  let productId = 'prod-score-boost-ap';
+  const { data: existingProd } = await service
+    .from('products')
+    .select('id')
+    .eq('slug', 'score-boost-ap')
+    .maybeSingle();
+
+  if (existingProd?.id) {
+    productId = existingProd.id;
+  } else {
+    const { data: newProd } = await service
+      .from('products')
+      .insert({
+        slug: 'score-boost-ap',
+        name: 'ScoreBoost AP',
+        tier: 'CORE',
+      })
+      .select('id')
+      .maybeSingle();
+    if (newProd?.id) {
+      productId = newProd.id;
+    }
+  }
+
+  // Fetch subjects by slugs from DB table
+  let { data: subjects } = await service
     .from('subjects')
     .select('id, product_id, slug')
     .in('slug', subjectSlugs);
