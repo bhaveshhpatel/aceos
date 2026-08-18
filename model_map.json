@@ -59,13 +59,32 @@
     }
   },
   "providers": {
-    "openai": {
-      "env_key": "OPENAI_API_KEY",
-      "base_url": "https://api.openai.com/v1"
+    "google": {
+      "env_key": "GOOGLE_API_KEY",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta/openai"
+    },
+    "openrouter": {
+      "env_key": "OPENROUTER_API_KEY",
+      "base_url": "https://openrouter.ai/api/v1"
+    },
+    "nvidia": {
+      "env_key": "NVIDIA_API_KEY",
+      "base_url": "https://integrate.api.nvidia.com/v1"
     },
     "groq": {
       "env_key": "GROQ_API_KEY",
       "base_url": "https://api.groq.com/openai/v1"
+    },
+    "openai": {
+      "env_key": "OPENAI_API_KEY",
+      "base_url": "https://api.openai.com/v1"
     }
-  }
+  },
+  "provider_fallbacks": [
+    { "provider": "google", "model": "gemini-2.5-flash" },
+    { "provider": "openrouter", "model": "deepseek/deepseek-r1:free" },
+    { "provider": "nvidia", "model": "deepseek-ai/deepseek-v3" },
+    { "provider": "groq", "model": "llama-3.3-70b-versatile" },
+    { "provider": "openai", "model": "gpt-4o-mini" }
+  ]
 }
