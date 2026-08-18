@@ -24,7 +24,10 @@ vi.mock('@supabase/supabase-js', () => ({
         };
       }
       if (table === 'student_subjects') {
-        return { insert: mockInsert };
+        return {
+          insert: mockInsert,
+          delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+        };
       }
       if (table === 'students') {
         return { update: mockUpdate };

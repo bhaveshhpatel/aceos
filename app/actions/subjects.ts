@@ -27,7 +27,7 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
 
   const service = serviceClient();
 
-  // Fetch subjects by slugs
+  // Fetch subjects by slugs from catalog table
   const { data: subjects, error: subError } = await service
     .from('subjects')
     .select('id, product_id, slug')
