@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { DashboardSubjects } from '@/components/DashboardSubjects';
 
 function serviceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-service-key';
@@ -101,71 +102,13 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Enrolled Subject Cards or Empty State */}
+        {/* Enrolled Subject Cards or Client Fallback */}
         <div className="space-y-4">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             Your Enrolled Subjects
           </h2>
 
-          {enrolledSubjects.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {enrolledSubjects.map((subject) => (
-                <div
-                  key={subject.id}
-                  className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-                >
-                  <div className="flex items-center space-x-3">
-                    <span className="text-3xl">{subject.icon}</span>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                        {subject.name}
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Diagnostic required (~45 mins)
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 space-y-2">
-                    <Link
-                      href={`/diagnostic/${subject.slug}`}
-                      className="block w-full rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-                    >
-                      Take Diagnostic
-                    </Link>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Link
-                        href={`/frq/${subject.slug}`}
-                        className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-                      >
-                        ✍️ FRQ Grader
-                      </Link>
-                      <Link
-                        href={`/exam/${subject.slug}`}
-                        className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
-                      >
-                        ⏱️ Exam Simulator
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-slate-700 dark:bg-slate-800">
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                You have not selected any AP subjects yet.
-              </p>
-              <div className="mt-4">
-                <Link
-                  href="/onboarding/subjects"
-                  className="inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-                >
-                  Select AP Subjects
-                </Link>
-              </div>
-            </div>
-          )}
+          <DashboardSubjects initialSubjects={enrolledSubjects} />
         </div>
       </div>
     </div>
