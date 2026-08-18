@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FRQFeedback } from '@/components/frq/FRQFeedback';
 
 import { SubjectSwitcher } from '@/components/SubjectSwitcher';
