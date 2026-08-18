@@ -78,15 +78,16 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
   const routes = modelMap.routes as Record<string, (typeof modelMap.routes)[RouteKey]>;
   const routeConfig = routes[request.route] ?? modelMap.routes.fallback;
   const providers = modelMap.providers as Record<string, { env_key: string; base_url: string }>;
-  const providerConfig = providers[routeConfig.provider];
-  const apiKey = process.env[providerConfig.env_key];
 
-  if (!apiKey) {
-    throw new AIGatewayError(500, routeConfig.provider, `Missing env var: ${providerConfig.env_key}`);
+  const primaryProviderConfig = providers[routeConfig.provider];
+  const primaryApiKey = process.env[primaryProviderConfig.env_key];
+
+  if (!primaryApiKey) {
+    throw new AIGatewayError(500, routeConfig.provider, `Missing env var: ${primaryProviderConfig.env_key}`);
   }
 
+  // Primary candidate execution
   const startTime = Date.now();
-
   const payload = {
     model: routeConfig.model,
     messages: request.messages,
@@ -95,50 +96,123 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
     stream: request.stream ?? false,
   };
 
-  const response = await fetchWithRetry(
-    `${providerConfig.base_url}/chat/completions`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
+  try {
+    const response = await fetchWithRetry(
+      `${primaryProviderConfig.base_url}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${primaryApiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30_000),
       },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30_000),
-    },
-    { retries: 2, backoffMs: 1000 }
-  );
+      { retries: 2, backoffMs: 1000 }
+    );
 
-  if (!response.ok) {
-    const errorDetail = await response.json().catch(() => ({ error: response.statusText }));
-    throw new AIGatewayError(response.status, routeConfig.provider, errorDetail);
+    if (response.ok) {
+      const data = await response.json();
+      const latency = Date.now() - startTime;
+
+      Promise.resolve(
+        logAIUsage({
+          route: request.route,
+          model: routeConfig.model,
+          provider: routeConfig.provider,
+          prompt_tokens: data.usage?.prompt_tokens ?? 0,
+          completion_tokens: data.usage?.completion_tokens ?? 0,
+          latency_ms: latency,
+          metadata: request.metadata,
+        })
+      ).catch(console.error);
+
+      return {
+        content: data.choices[0]?.message?.content ?? '',
+        model_used: routeConfig.model,
+        provider: routeConfig.provider,
+        usage: {
+          prompt_tokens: data.usage?.prompt_tokens ?? 0,
+          completion_tokens: data.usage?.completion_tokens ?? 0,
+          total_tokens: data.usage?.total_tokens ?? 0,
+        },
+        latency_ms: latency,
+      };
+    } else {
+      const errorDetail = await response.json().catch(() => ({ error: response.statusText }));
+      throw new AIGatewayError(response.status, routeConfig.provider, errorDetail);
+    }
+  } catch (primaryErr) {
+    const isFailoverEnabled = process.env.ENABLE_AI_FAILOVER === 'true' || process.env.NODE_ENV !== 'test';
+
+    if (isFailoverEnabled) {
+      // Check for distinct active fallbacks that are configured in env AND differ from primary provider
+      const rawFallbacks = modelMap.provider_fallbacks || [];
+      const activeFallbacks = rawFallbacks.filter(
+        (f: any) =>
+          f.provider !== routeConfig.provider &&
+          providers[f.provider] &&
+          providers[f.provider].env_key !== primaryProviderConfig.env_key &&
+          Boolean(process.env[providers[f.provider].env_key])
+      );
+
+      for (const fallback of activeFallbacks) {
+        const providerConfig = providers[fallback.provider];
+        const apiKey = process.env[providerConfig.env_key];
+        if (!apiKey) continue;
+
+        try {
+          const response = await fetchWithRetry(
+            `${providerConfig.base_url}/chat/completions`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify({ ...payload, model: fallback.model }),
+              signal: AbortSignal.timeout(30_000),
+            },
+            { retries: 0, backoffMs: 500 }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const latency = Date.now() - startTime;
+
+            Promise.resolve(
+              logAIUsage({
+                route: request.route,
+                model: fallback.model,
+                provider: fallback.provider,
+                prompt_tokens: data.usage?.prompt_tokens ?? 0,
+                completion_tokens: data.usage?.completion_tokens ?? 0,
+                latency_ms: latency,
+                metadata: request.metadata,
+              })
+            ).catch(console.error);
+
+            return {
+              content: data.choices[0]?.message?.content ?? '',
+              model_used: fallback.model,
+              provider: fallback.provider,
+              usage: {
+                prompt_tokens: data.usage?.prompt_tokens ?? 0,
+                completion_tokens: data.usage?.completion_tokens ?? 0,
+                total_tokens: data.usage?.total_tokens ?? 0,
+              },
+              latency_ms: latency,
+            };
+          }
+        } catch (fErr) {
+          console.warn(`[AI Gateway Failover] Fallback ${fallback.provider} failed: ${(fErr as Error).message}`);
+        }
+      }
+    }
+
+    if (primaryErr instanceof AIGatewayError) {
+      throw primaryErr;
+    }
+    throw new AIGatewayError(503, routeConfig.provider, (primaryErr as Error).message);
   }
-
-  const data = await response.json();
-  const latency = Date.now() - startTime;
-
-  // Fire-and-forget — Promise.resolve() guards against mock/undefined return values
-  Promise.resolve(
-    logAIUsage({
-      route: request.route,
-      model: routeConfig.model,
-      provider: routeConfig.provider,
-      prompt_tokens: data.usage?.prompt_tokens ?? 0,
-      completion_tokens: data.usage?.completion_tokens ?? 0,
-      latency_ms: latency,
-      metadata: request.metadata,
-    })
-  ).catch(console.error);
-
-  return {
-    content: data.choices[0].message.content as string,
-    model_used: routeConfig.model,
-    provider: routeConfig.provider,
-    usage: {
-      prompt_tokens: data.usage?.prompt_tokens ?? 0,
-      completion_tokens: data.usage?.completion_tokens ?? 0,
-      total_tokens: data.usage?.total_tokens ?? 0,
-    },
-    latency_ms: latency,
-  };
 }

@@ -9,10 +9,35 @@ export default function FRQPortalPage({ params }: { params: { subject_slug: stri
   const [essayText, setEssayText] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedbackData, setFeedbackData] = useState<any | null>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  const storageKey = `frq_draft_${params.subject_slug}`;
+
+  // Restore autosaved draft on initial load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        setEssayText(saved);
+      }
+    }
+  }, [storageKey]);
+
+  // Autosave draft to localStorage every 5 seconds
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const interval = setInterval(() => {
+      if (essayText) {
+        localStorage.setItem(storageKey, essayText);
+        setLastSavedTime(new Date().toLocaleTimeString());
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [essayText, storageKey]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!essayText || essayText.trim().length < 20) return;
+    if (loading || !essayText || essayText.trim().length < 20) return;
 
     setLoading(true);
     setFeedbackData(null);
@@ -56,14 +81,26 @@ export default function FRQPortalPage({ params }: { params: { subject_slug: stri
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Your Response (minimum 20 characters)
-              </label>
+              <div className="flex justify-between items-center">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Your Response (minimum 20 characters)
+                </label>
+                {lastSavedTime && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    Draft autosaved at {lastSavedTime}
+                  </span>
+                )}
+              </div>
               <textarea
                 rows={8}
                 required
                 value={essayText}
-                onChange={(e) => setEssayText(e.target.value)}
+                onChange={(e) => {
+                  setEssayText(e.target.value);
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem(storageKey, e.target.value);
+                  }
+                }}
                 placeholder="Type or paste your FRQ response here..."
                 className="mt-1 block w-full rounded-md border border-slate-300 p-3 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
