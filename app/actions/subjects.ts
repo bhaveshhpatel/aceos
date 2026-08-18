@@ -34,9 +34,6 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
     .in('slug', subjectSlugs);
 
   if (!subError && subjects && subjects.length > 0) {
-    // Delete previous selections for this student to allow re-selection without unique constraint error
-    await service.from('student_subjects').delete().eq('student_id', user.id);
-
     const inserts = subjects.map((sub) => ({
       student_id: user.id,
       subject_id: sub.id,
@@ -45,7 +42,7 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
     await service.from('student_subjects').insert(inserts);
   }
 
-  // Update student onboarding_completed status to unblock navigation
+  // Always mark onboarding_completed = true to unblock onboarding flow
   await service.from('students').update({ onboarding_completed: true }).eq('id', user.id);
 
   return { success: true };
