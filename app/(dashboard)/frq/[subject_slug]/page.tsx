@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { FRQFeedback } from '@/components/frq/FRQFeedback';
 
+import { SubjectSwitcher } from '@/components/SubjectSwitcher';
+
 export default function FRQPortalPage({ params }: { params: { subject_slug: string } }) {
   const [essayText, setEssayText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,12 +42,17 @@ export default function FRQPortalPage({ params }: { params: { subject_slug: stri
     <div className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-900">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="rounded-lg bg-white p-6 shadow dark:bg-slate-800">
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            AP Free-Response Question Submission Portal
-          </h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Submit your essay or handwritten work for AI evaluation against official College Board rubrics.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                AP Free-Response Question Submission Portal
+              </h1>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                Submit your essay or handwritten work for AI evaluation against official College Board rubrics.
+              </p>
+            </div>
+            <SubjectSwitcher currentSlug={params.subject_slug} basePath="/frq" />
+          </div>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
             <div>

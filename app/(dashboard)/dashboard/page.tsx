@@ -3,9 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
 function serviceClient() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-service-key';
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
   return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    url,
     serviceKey
   );
 }
@@ -125,13 +126,27 @@ export default async function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6">
+                  <div className="mt-6 space-y-2">
                     <Link
                       href={`/diagnostic/${subject.slug}`}
-                      className="inline-block w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                      className="block w-full rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
                     >
                       Take Diagnostic
                     </Link>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link
+                        href={`/frq/${subject.slug}`}
+                        className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                      >
+                        ✍️ FRQ Grader
+                      </Link>
+                      <Link
+                        href={`/exam/${subject.slug}`}
+                        className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-center text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
+                      >
+                        ⏱️ Exam Simulator
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}
