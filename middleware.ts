@@ -72,7 +72,7 @@ export async function middleware(request: NextRequest) {
   if (isPublicPath(pathname)) {
     // Redirect signed-in users away from auth pages
     if (user && (pathname === '/signin' || pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return NextResponse.redirect(new URL('/score-boost-ap/dashboard', request.url));
     }
     return response;
   }
