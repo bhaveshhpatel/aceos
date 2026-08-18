@@ -3,20 +3,31 @@
 import { useState } from 'react';
 import { calculateFSRS, FSRSCardState, FSRSGrade } from '@/lib/fsrs/fsrs';
 
-const DUE_CARDS = [
-  {
-    id: 'card1',
-    question: 'What is the rate law expression for a zero-order reaction?',
-    answer: 'Rate = k',
-    initialState: { stability: 1, difficulty: 5, repetition: 0, lapses: 0, last_review: new Date().toISOString() },
-  },
-  {
-    id: 'card2',
-    question: 'How is pH calculated from hydronium ion concentration [H+]?',
-    answer: 'pH = -log[H+]',
-    initialState: { stability: 2, difficulty: 4, repetition: 1, lapses: 0, last_review: new Date().toISOString() },
-  },
-];
+import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
+
+function generateSyllabusFlashcards() {
+  const cards: Array<{ id: string; subject: string; unit: string; question: string; answer: string; initialState: any }> = [];
+  let idCount = 1;
+
+  Object.values(OFFICIAL_AP_SYLLABI).forEach((syllabus) => {
+    syllabus.units.forEach((unit) => {
+      unit.topics.forEach((topic) => {
+        cards.push({
+          id: `card-${idCount++}`,
+          subject: syllabus.name,
+          unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
+          question: `[${syllabus.name}] What is the key concept or formula for ${topic}?`,
+          answer: `${topic} is a core requirement in ${syllabus.name} (Unit ${unit.unitNumber}). Understand its definition, quantitative applications, and AP exam rubric expectations.`,
+          initialState: { stability: 1, difficulty: 5, repetition: 0, lapses: 0, last_review: new Date().toISOString() },
+        });
+      });
+    });
+  });
+
+  return cards;
+}
+
+const DUE_CARDS = generateSyllabusFlashcards();
 
 export default function StudyQueuePage() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -63,9 +74,12 @@ export default function StudyQueuePage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 dark:bg-slate-900">
       <div className="w-full max-w-lg space-y-6 rounded-lg bg-white p-8 shadow dark:bg-slate-800">
-        <div className="flex justify-between text-xs text-slate-500">
-          <span>Daily Review Queue</span>
-          <span>Card {currentIndex + 1} of {DUE_CARDS.length}</span>
+        <div className="flex flex-col space-y-1 text-xs text-slate-500">
+          <div className="flex justify-between">
+            <span className="font-bold text-indigo-600 dark:text-indigo-400">{card.subject}</span>
+            <span>Card {currentIndex + 1} of {DUE_CARDS.length}</span>
+          </div>
+          <span className="text-[11px] text-slate-400">{card.unit}</span>
         </div>
 
         <div className="min-h-[140px] space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-6 dark:border-slate-700 dark:bg-slate-900">

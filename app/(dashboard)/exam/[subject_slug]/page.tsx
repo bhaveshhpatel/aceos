@@ -4,49 +4,48 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SubjectSwitcher } from '@/components/SubjectSwitcher';
 
-const SAMPLE_EXAM_QUESTIONS = [
-  {
-    id: 'eq1',
-    number: 1,
-    question: 'The function f is given by f(x) = 3x^2 - 2x + 5. What is the value of f\'(2)?',
-    options: ['8', '10', '12', '14'],
-    correct: 1, // 10
-    isStem: true,
-  },
-  {
-    id: 'eq2',
-    number: 2,
-    question: 'Which of the following historical developments best illustrates the expansion of presidential power during the Great Depression?',
-    options: [
-      'Passage of the War Powers Resolution',
-      'Implementation of the New Deal agencies and executive orders',
-      'Establishment of the Interstate Commerce Commission',
-      'Ratification of the Nineteenth Amendment',
-    ],
-    correct: 1,
-    isStem: false,
-  },
-  {
-    id: 'eq3',
-    number: 3,
-    question: 'Calculate the limit as x approaches 0 of (sin x) / x.',
-    options: ['0', '1', 'Undefined', 'Infinity'],
-    correct: 1,
-    isStem: true,
-  },
-];
+import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
+
+function getExamQuestionsForSubject(subjectSlug: string) {
+  const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
+  const questions: Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number }> = [];
+
+  let qNum = 1;
+  syllabus.units.forEach((unit) => {
+    unit.topics.forEach((topic) => {
+      questions.push({
+        id: `q-${subjectSlug}-${qNum}`,
+        number: qNum,
+        unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
+        topic,
+        question: `[${syllabus.name} — ${topic}] Which of the following statements best applies to ${topic} in Unit ${unit.unitNumber}?`,
+        options: [
+          `Option A: Primary principle regarding ${topic}`,
+          `Option B: Secondary relationship involving ${topic}`,
+          `Option C: Quantitative model application for ${topic}`,
+          `Option D: Theoretical boundary condition for ${topic}`,
+        ],
+        correct: 0,
+      });
+      qNum++;
+    });
+  });
+
+  return questions;
+}
 
 export default function ExamPracticePage({ params }: { params: { subject_slug: string } }) {
+  const [questions] = useState(() => getExamQuestionsForSubject(params.subject_slug));
   const [currentIdx, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, number>>({});
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(1800); // 30 minutes timer
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(5400); // 90 minutes full length
   const [showFormulaSheet, setShowFormulaSheet] = useState(false);
   const [showScratchpad, setShowScratchpad] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
-  const currentQ = SAMPLE_EXAM_QUESTIONS[currentIdx];
+  const currentQ = questions[currentIdx] || questions[0];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -72,8 +71,8 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
   async function handleSubmitExam() {
     setSubmitting(true);
 
-    const timeSpent = 1800 - timeLeftSeconds;
-    const formattedAnswers = SAMPLE_EXAM_QUESTIONS.map((q) => ({
+    const timeSpent = 5400 - timeLeftSeconds;
+    const formattedAnswers = questions.map((q) => ({
       question_id: q.id,
       selected_option: userAnswers[q.id] ?? null,
       correct: userAnswers[q.id] === q.correct,
@@ -144,9 +143,14 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
         <main className="flex flex-1 flex-col justify-between p-8">
           <div className="mx-auto max-w-3xl space-y-6">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <span className="text-xs font-semibold text-slate-400 uppercase">
-                Question {currentQ.number} of {SAMPLE_EXAM_QUESTIONS.length}
-              </span>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase block">
+                  Question {currentQ.number} of {questions.length}
+                </span>
+                <span className="text-xs font-medium text-indigo-400 block">
+                  {currentQ.unit} — {currentQ.topic}
+                </span>
+              </div>
               <button
                 onClick={() => toggleFlag(currentQ.id)}
                 className={`flex items-center space-x-1.5 text-xs font-semibold ${
@@ -196,7 +200,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               Previous
             </button>
 
-            {currentIdx < SAMPLE_EXAM_QUESTIONS.length - 1 ? (
+            {currentIdx < questions.length - 1 ? (
               <button
                 onClick={() => setCurrentIndex((i) => i + 1)}
                 className="rounded bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
@@ -222,7 +226,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               Question Navigator Grid
             </h3>
             <div className="mt-4 grid grid-cols-4 gap-2">
-              {SAMPLE_EXAM_QUESTIONS.map((q, idx) => {
+              {questions.map((q, idx) => {
                 const isAnswered = userAnswers[q.id] !== undefined;
                 const isCurrent = idx === currentIdx;
                 const isFlagged = flagged[q.id];

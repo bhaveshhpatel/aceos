@@ -67,7 +67,7 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
           {
             slug: item.slug,
             name: item.name,
-            type: item.type,
+            icon_name: item.icon,
             product_id: productId,
           },
           { onConflict: 'slug' }

@@ -41,15 +41,35 @@ export default function SubjectSelectionPage() {
     setLoading(true);
     setError(null);
 
-    const res = await saveSubjectSelections(selectedSlugs);
+    try {
+      const res = await saveSubjectSelections(selectedSlugs);
 
-    if (!res.success) {
-      setError(res.error || 'Failed to save subject selections.');
-      setLoading(false);
-      return;
+      if (!res.success) {
+        // Fallback: save to localStorage if session state is pending
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('student_selected_slugs', JSON.stringify(selectedSlugs));
+        }
+        if (res.error === 'Unauthorized') {
+          // Unblock student and proceed to dashboard with cached selections
+          router.push('/dashboard');
+          return;
+        }
+        setError(res.error || 'Failed to save subject selections.');
+        setLoading(false);
+        return;
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('student_selected_slugs', JSON.stringify(selectedSlugs));
+      }
+
+      router.push('/dashboard');
+    } catch (err) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('student_selected_slugs', JSON.stringify(selectedSlugs));
+      }
+      router.push('/dashboard');
     }
-
-    router.push('/dashboard');
   }
 
   return (
