@@ -11,9 +11,7 @@ export function NavBar() {
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: Home },
-    { href: '/study/queue', label: 'Daily Practice', icon: Layers },
-    { href: '/frq/ap-us-history', label: 'FRQ Grader', icon: BookOpen },
-    { href: '/exam/ap-calculus-ab', label: 'Exam Simulator', icon: Award },
+    { href: '/history', label: 'My Progress & History', icon: Layers },
     { href: '/pricing', label: 'Pricing & Pro', icon: DollarSign },
   ];
 

@@ -67,6 +67,21 @@ export default function FRQPortalPage({ params }: { params: { subject_slug: stri
       const data = await res.json();
       if (res.ok) {
         setFeedbackData(data);
+
+        // Save completed FRQ submission to localStorage history for student history portal
+        if (typeof window !== 'undefined') {
+          const historyKey = `frq_history_${params.subject_slug}`;
+          const saved = localStorage.getItem(historyKey);
+          const list = saved ? JSON.parse(saved) : [];
+          list.unshift({
+            prompt_title: activePrompt.title,
+            prompt_text: activePrompt.prompt,
+            essay_text: essayText,
+            feedback: data,
+            submitted_at: new Date().toISOString(),
+          });
+          localStorage.setItem(historyKey, JSON.stringify(list));
+        }
       }
     } catch (err) {
       console.error(err);
