@@ -20,9 +20,15 @@ export default function PostExamAnalyticsPage({ params }: { params: { subject_sl
     }
   }, [params.subject_slug]);
 
-  const totalQ = report?.total_questions || 10;
-  const correctCount = report?.correct_count || 8;
-  const accuracy = Math.round((correctCount / totalQ) * 100);
+  const totalQ = Math.max(1, report?.total_questions || (report?.answers ? report.answers.length : 10));
+  const correctCount = report?.correct_count !== undefined
+    ? Math.min(totalQ, report.correct_count)
+    : report?.answers
+    ? report.answers.filter((a: any) => a.is_correct).length
+    : 8;
+
+  const rawAccuracy = Math.round((correctCount / totalQ) * 100);
+  const accuracy = Math.min(100, Math.max(0, rawAccuracy));
 
   let predictedApScore = 1;
   if (accuracy >= 80) predictedApScore = 5;
@@ -30,7 +36,8 @@ export default function PostExamAnalyticsPage({ params }: { params: { subject_sl
   else if (accuracy >= 50) predictedApScore = 3;
   else if (accuracy >= 35) predictedApScore = 2;
 
-  const timeSpentMins = Math.round((report?.time_spent_seconds || 1200) / 60);
+  const rawTimeSeconds = report?.time_spent_seconds || 1200;
+  const timeSpentMins = Math.max(1, Math.round(rawTimeSeconds / 60));
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-900">
