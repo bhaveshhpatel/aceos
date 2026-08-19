@@ -26,6 +26,28 @@ function getExamQuestionsForSubject(subjectSlug: string) {
     });
   }
 
+  // Supplement with unit topic questions
+  let qNum = list.length + 1;
+  syllabus.units.forEach((unit) => {
+    unit.topics.forEach((topic) => {
+      list.push({
+        id: `q-${subjectSlug}-${qNum}`,
+        number: qNum,
+        unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
+        topic,
+        question: `[${syllabus.name} Exam Practice] Which statement correctly evaluates ${topic} in Unit ${unit.unitNumber} (${unit.weightPercentage} of AP exam)?`,
+        options: [
+          `Primary College Board principle regarding ${topic}`,
+          `Secondary conceptual misapplication regarding ${topic}`,
+          `Incomplete quantitative relationship for ${topic}`,
+          `Irrelevant physical/historical property regarding ${topic}`,
+        ],
+        correct: 0,
+        explanation: `[Official AP Rubric] ${topic} is a core requirement in ${syllabus.name} Unit ${unit.unitNumber}.`,
+      });
+    });
+  }
+
   return list;
 }
 
