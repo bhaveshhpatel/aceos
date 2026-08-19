@@ -29,7 +29,7 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
   const service = serviceClient();
 
   // Ensure default product row exists
-  let productId = 'prod-score-boost-ap';
+  let productId = '00000000-0000-0000-0000-000000000001';
   const { data: existingProd } = await service
     .from('products')
     .select('id')
@@ -44,7 +44,6 @@ export async function saveSubjectSelections(subjectSlugs: string[]) {
       .insert({
         slug: 'score-boost-ap',
         name: 'ScoreBoost AP',
-        tier: 'CORE',
       })
       .select('id')
       .maybeSingle();
