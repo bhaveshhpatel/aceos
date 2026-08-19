@@ -52,7 +52,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               topic: q.topic || 'AP Concept',
               question: q.question,
               options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-              correct: typeof q.correct === 'number' ? q.correct : 0,
+              correct: typeof q.correct === 'number' ? q.correct : (idx % 4),
               explanation: q.explanation || 'Official AP Rubric Explanation.',
             }));
             setQuestions(formatted);
