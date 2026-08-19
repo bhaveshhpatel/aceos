@@ -10,7 +10,6 @@ function getExamQuestionsForSubject(subjectSlug: string) {
   const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
   const list: Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number; explanation: string }> = [];
 
-  // ONLY include authentic curated College Board AP exam questions
   if (syllabus.questions && syllabus.questions.length > 0) {
     syllabus.questions.forEach((q, idx) => {
       list.push({

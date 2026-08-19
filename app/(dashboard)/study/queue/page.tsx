@@ -85,53 +85,71 @@ export default function StudyQueuePage() {
 
       let generated: CardItem[] = [];
 
-    if (syllabus.flashcards && syllabus.flashcards.length > 0) {
-      syllabus.flashcards.forEach((fc) => {
-        if (!seenIds.has(fc.id)) {
-          generated.push({
-            id: fc.id,
-            subjectSlug: selectedSlug,
-            subjectName: syllabus.name,
-            unit: fc.unit,
-            topic: fc.topic,
-            question: fc.question,
-            answer: fc.answer,
-            explanation: fc.explanation,
-            initialState: {
-              stability: 1,
-              difficulty: 5,
-              repetition: 0,
-              lapses: 0,
-              last_review: new Date().toISOString(),
-            },
-          });
-        }
-      });
-    }
+      try {
+        const res = await fetch('/api/study/generate-cards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject_slug: selectedSlug }),
+        });
 
-    if (syllabus.questions && syllabus.questions.length > 0) {
-      syllabus.questions.forEach((q) => {
-        const qCardId = `fc-${q.id}`;
-        if (!seenIds.has(qCardId)) {
-          generated.push({
-            id: qCardId,
-            subjectSlug: selectedSlug,
-            subjectName: syllabus.name,
-            unit: q.unit,
-            topic: q.topic,
-            question: q.question,
-            answer: `Correct Answer: ${q.options[q.correct]}`,
-            explanation: q.explanation,
-            initialState: {
-              stability: 1,
-              difficulty: 5,
-              repetition: 0,
-              lapses: 0,
-              last_review: new Date().toISOString(),
-            },
-          });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.cards) && data.cards.length > 0) {
+            data.cards.forEach((c: any) => {
+              if (!seenIds.has(c.id)) {
+                generated.push({
+                  id: c.id,
+                  subjectSlug: selectedSlug,
+                  subjectName: syllabus.name,
+                  unit: c.unit || 'AP Core Unit',
+                  topic: c.topic || 'Core Concept',
+                  question: c.question,
+                  answer: c.answer,
+                  explanation: c.explanation || 'Official College Board AP Rubric Explanation.',
+                  initialState: {
+                    stability: 1,
+                    difficulty: 5,
+                    repetition: 0,
+                    lapses: 0,
+                    last_review: new Date().toISOString(),
+                  },
+                });
+              }
+            });
+          }
         }
-      });
+      } catch (err) {
+        console.error('Failed to load AI study cards', err);
+      }
+
+      if (generated.length === 0 && syllabus.flashcards) {
+        syllabus.flashcards.forEach((fc) => {
+          if (!seenIds.has(fc.id)) {
+            generated.push({
+              id: fc.id,
+              subjectSlug: selectedSlug,
+              subjectName: syllabus.name,
+              unit: fc.unit,
+              topic: fc.topic,
+              question: fc.question,
+              answer: fc.answer,
+              explanation: fc.explanation,
+              initialState: {
+                stability: 1,
+                difficulty: 5,
+                repetition: 0,
+                lapses: 0,
+                last_review: new Date().toISOString(),
+              },
+            });
+          }
+        });
+      }
+
+      setCards(generated);
+      setCurrentIndex(0);
+      setShowAnswer(false);
+      setCompleted(generated.length === 0);
     }
 
       if (generated.length === 0 && syllabus.flashcards) {
