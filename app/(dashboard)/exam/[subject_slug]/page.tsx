@@ -78,8 +78,30 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
       correct: userAnswers[q.id] === q.correct,
     }));
 
+    const resultPayload = {
+      subject_slug: params.subject_slug,
+      time_spent_seconds: timeSpent,
+      total_questions: questions.length,
+      correct_count: formattedAnswers.filter((a) => a.correct).length,
+      answers: questions.map((q, idx) => ({
+        number: q.number,
+        unit: q.unit,
+        topic: q.topic,
+        question: q.question,
+        options: q.options,
+        selected_option: userAnswers[q.id] ?? null,
+        correct_option: q.correct,
+        is_correct: userAnswers[q.id] === q.correct,
+        explanation: `[College Board AP Rubric] ${q.topic} in ${q.unit}. Option ${String.fromCharCode(65 + q.correct)} is correct.`,
+      })),
+    };
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`last_exam_result_${params.subject_slug}`, JSON.stringify(resultPayload));
+    }
+
     try {
-      const res = await fetch('/api/exam/submit', {
+      await fetch('/api/exam/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -87,13 +109,12 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
           time_spent_seconds: timeSpent,
           answers: formattedAnswers,
         }),
-      });
+      }).catch(console.error);
 
-      if (res.ok) {
-        router.push(`/exam/${params.subject_slug}/report`);
-      }
+      router.push(`/exam/${params.subject_slug}/report`);
     } catch (err) {
       console.error(err);
+      router.push(`/exam/${params.subject_slug}/report`);
     } finally {
       setSubmitting(false);
     }

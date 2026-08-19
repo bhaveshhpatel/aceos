@@ -27,11 +27,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    import('@/config/ap_syllabi');
+    const { OFFICIAL_AP_SYLLABI } = await import('@/config/ap_syllabi');
+    const syllabus = OFFICIAL_AP_SYLLABI[subject_slug] || OFFICIAL_AP_SYLLABI['ap-us-history'];
+
     const { system, user: userPrompt } = renderPrompt('frq_humanities_grader', {
-      subject: subject_slug || 'AP US History',
-      frq_type: 'LEQ',
-      prompt: 'Evaluate the causes of the Civil War.',
-      rubric: 'Thesis (1 pt), Evidence (2 pts), Analysis (2 pts)',
+      subject: syllabus.name,
+      frq_type: syllabus.category === 'STEM' ? 'Free Response Calculation' : 'Long Essay / DBQ',
+      prompt: `Evaluate the student response according to College Board ${syllabus.name} scoring guidelines across ${syllabus.units[0]?.unitName || 'Core Units'}.`,
+      rubric: 'Thesis / Claim (1 pt), Evidence & Justification (2 pts), Analysis & Reasoning (2 pts), Complexity / Nuance (1 pt)',
       student_response: essay_text,
     });
 
