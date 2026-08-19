@@ -3,39 +3,42 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const SAMPLE_QUESTIONS = [
-  {
-    id: 'q1',
-    unit_id: 'Unit 1: Atomic Structure',
-    question: 'What is the molar mass of H2O (in g/mol)?',
-    type: 'numerical',
-    expected_value: 18.015,
-  },
-  {
-    id: 'q2',
-    unit_id: 'Unit 1: Atomic Structure',
-    question: 'Which subatomic particle determines the chemical reactivity of an atom?',
-    type: 'mcq',
-    options: ['Proton', 'Neutron', 'Valence Electron', 'Alpha Particle'],
-    correct_option: 2,
-  },
-  {
-    id: 'q3',
-    unit_id: 'Unit 2: Chemical Bonding',
-    question: 'What type of bonding involves the sharing of electron pairs between atoms?',
-    type: 'mcq',
-    options: ['Ionic Bonding', 'Covalent Bonding', 'Metallic Bonding', 'Hydrogen Bonding'],
-    correct_option: 1,
-  },
-];
+import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
+
+function getDiagnosticQuestions(subjectSlug: string) {
+  const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
+  if (syllabus.questions && syllabus.questions.length > 0) {
+    return syllabus.questions.map((q) => ({
+      id: q.id,
+      unit_id: q.unit,
+      question: q.question,
+      type: 'mcq',
+      options: q.options,
+      correct_option: q.correct,
+      expected_value: undefined as number | undefined,
+    }));
+  }
+  return [
+    {
+      id: 'q1',
+      unit_id: 'Unit 1: Fundamentals',
+      question: `[${syllabus.name}] What is the primary foundational concept in Unit 1 of ${syllabus.name}?`,
+      type: 'mcq',
+      options: ['Core Concept A', 'Core Concept B', 'Core Concept C', 'Core Concept D'],
+      correct_option: 0,
+      expected_value: undefined as number | undefined,
+    },
+  ];
+}
 
 export default function DiagnosticQuizPage({ params }: { params: { subject_slug: string } }) {
+  const [questions] = useState(() => getDiagnosticQuestions(params.subject_slug));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const currentQ = SAMPLE_QUESTIONS[currentIndex];
+  const currentQ = questions[currentIndex] || questions[0];
 
   function handleAnswer(answerValue: any) {
     setUserAnswers({ ...userAnswers, [currentQ.id]: answerValue });
@@ -44,7 +47,7 @@ export default function DiagnosticQuizPage({ params }: { params: { subject_slug:
   async function handleSubmit() {
     setLoading(true);
 
-    const formattedAnswers = SAMPLE_QUESTIONS.map((q) => {
+    const formattedAnswers = questions.map((q) => {
       const val = userAnswers[q.id];
       let isCorrect = false;
       if (q.type === 'mcq') {
@@ -84,7 +87,7 @@ export default function DiagnosticQuizPage({ params }: { params: { subject_slug:
       <div className="mx-auto max-w-2xl space-y-6 rounded-lg bg-white p-8 shadow dark:bg-slate-800">
         <div className="flex items-center justify-between border-b pb-4 dark:border-slate-700">
           <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            AP Diagnostic Quiz — Question {currentIndex + 1} of {SAMPLE_QUESTIONS.length}
+            AP Diagnostic Quiz — Question {currentIndex + 1} of {questions.length}
           </h1>
           <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
             {currentQ.unit_id}
@@ -133,7 +136,7 @@ export default function DiagnosticQuizPage({ params }: { params: { subject_slug:
             Previous
           </button>
 
-          {currentIndex < SAMPLE_QUESTIONS.length - 1 ? (
+          {currentIndex < questions.length - 1 ? (
             <button
               onClick={() => setCurrentIndex((i) => i + 1)}
               className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"

@@ -45,9 +45,8 @@ function getExamQuestionsForSubject(subjectSlug: string) {
         correct: 0,
         explanation: `[Official AP Rubric] ${topic} is a core requirement in ${syllabus.name} Unit ${unit.unitNumber}.`,
       });
-      qNum++;
     });
-  });
+  }
 
   return list;
 }
