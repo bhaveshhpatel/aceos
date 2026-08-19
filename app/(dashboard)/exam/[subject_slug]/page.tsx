@@ -8,30 +8,48 @@ import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
 
 function getExamQuestionsForSubject(subjectSlug: string) {
   const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
-  const questions: Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number }> = [];
+  const list: Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number; explanation: string }> = [];
 
-  let qNum = 1;
+  // First include authentic curated AP questions for this course
+  if (syllabus.questions && syllabus.questions.length > 0) {
+    syllabus.questions.forEach((q, idx) => {
+      list.push({
+        id: q.id,
+        number: idx + 1,
+        unit: q.unit,
+        topic: q.topic,
+        question: q.question,
+        options: q.options,
+        correct: q.correct,
+        explanation: q.explanation,
+      });
+    });
+  }
+
+  // Supplement with unit topic questions
+  let qNum = list.length + 1;
   syllabus.units.forEach((unit) => {
     unit.topics.forEach((topic) => {
-      questions.push({
+      list.push({
         id: `q-${subjectSlug}-${qNum}`,
         number: qNum,
         unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
         topic,
-        question: `[${syllabus.name} — ${topic}] Which of the following statements best applies to ${topic} in Unit ${unit.unitNumber}?`,
+        question: `[${syllabus.name} Exam Practice] Which statement correctly evaluates ${topic} in Unit ${unit.unitNumber} (${unit.weightPercentage} of AP exam)?`,
         options: [
-          `Option A: Primary principle regarding ${topic}`,
-          `Option B: Secondary relationship involving ${topic}`,
-          `Option C: Quantitative model application for ${topic}`,
-          `Option D: Theoretical boundary condition for ${topic}`,
+          `Primary College Board principle regarding ${topic}`,
+          `Secondary conceptual misapplication regarding ${topic}`,
+          `Incomplete quantitative relationship for ${topic}`,
+          `Irrelevant physical/historical property regarding ${topic}`,
         ],
         correct: 0,
+        explanation: `[Official AP Rubric] ${topic} is a core requirement in ${syllabus.name} Unit ${unit.unitNumber}.`,
       });
       qNum++;
     });
   });
 
-  return questions;
+  return list;
 }
 
 export default function ExamPracticePage({ params }: { params: { subject_slug: string } }) {

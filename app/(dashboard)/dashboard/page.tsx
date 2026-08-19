@@ -52,16 +52,25 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 dark:bg-slate-900">
       <div className="mx-auto max-w-5xl space-y-8">
-        {/* Welcome Header */}
-        <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-slate-800">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Welcome, {firstName}!
-          </h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            {enrolledSubjects.length > 0
-              ? `You're set up for ${enrolledSubjects.length} AP subject${enrolledSubjects.length > 1 ? 's' : ''}.`
-              : "You haven't enrolled in any AP subjects yet."}
-          </p>
+        {/* Welcome Header & Subject Enrollment Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl bg-white p-6 shadow-sm dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Welcome, {firstName}!
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              {enrolledSubjects.length > 0
+                ? `You're enrolled in ${enrolledSubjects.length} AP subject${enrolledSubjects.length > 1 ? 's' : ''}.`
+                : "You haven't enrolled in any AP subjects yet."}
+            </p>
+          </div>
+
+          <Link
+            href="/onboarding/subjects"
+            className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-indigo-500 transition-all"
+          >
+            + Add / Modify AP Subjects
+          </Link>
         </div>
 
         {/* Onboarding Progress Step Indicator */}

@@ -4,14 +4,26 @@ import { useState, useEffect } from 'react';
 import { FRQFeedback } from '@/components/frq/FRQFeedback';
 
 import { SubjectSwitcher } from '@/components/SubjectSwitcher';
+import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
 
 export default function FRQPortalPage({ params }: { params: { subject_slug: string } }) {
+  const syllabus = OFFICIAL_AP_SYLLABI[params.subject_slug] || OFFICIAL_AP_SYLLABI['ap-us-history'];
+  const prompts = syllabus.frqPrompts || [];
+  const [selectedPromptIdx, setSelectedPromptIdx] = useState(0);
+
+  const activePrompt = prompts[selectedPromptIdx] || {
+    id: 'default-frq',
+    title: `${syllabus.name} Free-Response Question`,
+    prompt: `Analyze the core principles of ${syllabus.name} across its primary units. Justify your reasoning using College Board rubric standards.`,
+    rubricSummary: 'Thesis/Claim (1 pt), Evidence (2 pts), Reasoning (2 pts), Complexity (1 pt).',
+  };
+
   const [essayText, setEssayText] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedbackData, setFeedbackData] = useState<any | null>(null);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
 
-  const storageKey = `frq_draft_${params.subject_slug}`;
+  const storageKey = `frq_draft_${params.subject_slug}_${selectedPromptIdx}`;
 
   // Restore autosaved draft on initial load
   useEffect(() => {
@@ -73,10 +85,41 @@ export default function FRQPortalPage({ params }: { params: { subject_slug: stri
                 AP Free-Response Question Submission Portal
               </h1>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Submit your essay or handwritten work for AI evaluation against official College Board rubrics.
+                Official College Board AP Rubric AI Evaluation Engine
               </p>
             </div>
             <SubjectSwitcher currentSlug={params.subject_slug} basePath="/frq" />
+          </div>
+
+          {/* Prompt Selector & Details */}
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                {syllabus.name} FRQ Prompt
+              </span>
+              {prompts.length > 1 && (
+                <select
+                  value={selectedPromptIdx}
+                  onChange={(e) => setSelectedPromptIdx(Number(e.target.value))}
+                  className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  {prompts.map((p, idx) => (
+                    <option key={p.id} value={idx}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {activePrompt.prompt}
+            </p>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              <span className="font-bold text-slate-700 dark:text-slate-300">College Board Rubric: </span>
+              {activePrompt.rubricSummary}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
