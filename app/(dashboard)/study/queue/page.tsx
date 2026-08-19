@@ -152,36 +152,6 @@ export default function StudyQueuePage() {
       setCompleted(generated.length === 0);
     }
 
-      if (generated.length === 0 && syllabus.flashcards) {
-        syllabus.flashcards.forEach((fc) => {
-          if (!seenIds.has(fc.id)) {
-            generated.push({
-              id: fc.id,
-              subjectSlug: selectedSlug,
-              subjectName: syllabus.name,
-              unit: fc.unit,
-              topic: fc.topic,
-              question: fc.question,
-              answer: fc.answer,
-              explanation: fc.explanation,
-              initialState: {
-                stability: 1,
-                difficulty: 5,
-                repetition: 0,
-                lapses: 0,
-                last_review: new Date().toISOString(),
-              },
-            });
-          }
-        });
-      }
-
-      setCards(generated);
-      setCurrentIndex(0);
-      setShowAnswer(false);
-      setCompleted(generated.length === 0);
-    }
-
     loadAiCards();
   }, [selectedSlug]);
 
