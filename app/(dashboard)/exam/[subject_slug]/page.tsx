@@ -30,8 +30,42 @@ function getExamQuestionsForSubject(subjectSlug: string) {
 }
 
 export default function ExamPracticePage({ params }: { params: { subject_slug: string } }) {
-  const [questions] = useState(() => getExamQuestionsForSubject(params.subject_slug));
+  const [questions, setQuestions] = useState<Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number; explanation: string }>>(() => getExamQuestionsForSubject(params.subject_slug));
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [currentIdx, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    async function loadAiQuestions() {
+      try {
+        const res = await fetch('/api/exam/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject_slug: params.subject_slug }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.questions) && data.questions.length >= 3) {
+            const formatted = data.questions.map((q: any, idx: number) => ({
+              id: q.id || `ai-${params.subject_slug}-${idx + 1}`,
+              number: idx + 1,
+              unit: q.unit || 'Core Unit',
+              topic: q.topic || 'AP Concept',
+              question: q.question,
+              options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+              correct: typeof q.correct === 'number' ? q.correct : 0,
+              explanation: q.explanation || 'Official AP Rubric Explanation.',
+            }));
+            setQuestions(formatted);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load AI exam questions', err);
+      } finally {
+        setLoadingQuestions(false);
+      }
+    }
+    loadAiQuestions();
+  }, [params.subject_slug]);
   const [userAnswers, setUserAnswers] = useState<Record<string, number>>({});
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(5400); // 90 minutes full length

@@ -68,22 +68,22 @@ export default function StudyQueuePage() {
     fetchSubjects();
   }, []);
 
-  // Generate deduplicated subject cards for the active subject
+  // Generate AI-powered deduplicated subject cards for the active subject
   useEffect(() => {
-    const syllabus = OFFICIAL_AP_SYLLABI[selectedSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
-    const seenIds = new Set<string>();
+    async function loadAiCards() {
+      const syllabus = OFFICIAL_AP_SYLLABI[selectedSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
+      const seenIds = new Set<string>();
 
-    if (typeof window !== 'undefined') {
-      const reviewed = localStorage.getItem(`reviewed_cards_${selectedSlug}`);
-      if (reviewed) {
-        try {
-          JSON.parse(reviewed).forEach((id: string) => seenIds.add(id));
-        } catch (e) {}
+      if (typeof window !== 'undefined') {
+        const reviewed = localStorage.getItem(`reviewed_cards_${selectedSlug}`);
+        if (reviewed) {
+          try {
+            JSON.parse(reviewed).forEach((id: string) => seenIds.add(id));
+          } catch (e) {}
+        }
       }
-    }
 
-    const generated: CardItem[] = [];
-    let count = 1;
+      let generated: CardItem[] = [];
 
     if (syllabus.flashcards && syllabus.flashcards.length > 0) {
       syllabus.flashcards.forEach((fc) => {
@@ -134,10 +134,37 @@ export default function StudyQueuePage() {
       });
     }
 
-    setCards(generated);
-    setCurrentIndex(0);
-    setShowAnswer(false);
-    setCompleted(generated.length === 0);
+      if (generated.length === 0 && syllabus.flashcards) {
+        syllabus.flashcards.forEach((fc) => {
+          if (!seenIds.has(fc.id)) {
+            generated.push({
+              id: fc.id,
+              subjectSlug: selectedSlug,
+              subjectName: syllabus.name,
+              unit: fc.unit,
+              topic: fc.topic,
+              question: fc.question,
+              answer: fc.answer,
+              explanation: fc.explanation,
+              initialState: {
+                stability: 1,
+                difficulty: 5,
+                repetition: 0,
+                lapses: 0,
+                last_review: new Date().toISOString(),
+              },
+            });
+          }
+        });
+      }
+
+      setCards(generated);
+      setCurrentIndex(0);
+      setShowAnswer(false);
+      setCompleted(generated.length === 0);
+    }
+
+    loadAiCards();
   }, [selectedSlug]);
 
   const card = cards[currentIndex];
