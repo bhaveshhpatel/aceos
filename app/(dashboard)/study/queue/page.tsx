@@ -85,18 +85,19 @@ export default function StudyQueuePage() {
     const generated: CardItem[] = [];
     let count = 1;
 
-    if (syllabus.flashcards && syllabus.flashcards.length > 0) {
-      syllabus.flashcards.forEach((fc) => {
-        if (!seenIds.has(fc.id)) {
+    syllabus.units.forEach((unit) => {
+      unit.topics.forEach((topic) => {
+        const cardId = `card-${selectedSlug}-${count}`;
+        if (!seenIds.has(cardId)) {
           generated.push({
-            id: fc.id,
+            id: cardId,
             subjectSlug: selectedSlug,
             subjectName: syllabus.name,
-            unit: fc.unit,
-            topic: fc.topic,
-            question: fc.question,
-            answer: fc.answer,
-            explanation: fc.explanation,
+            unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
+            topic,
+            question: `[${syllabus.name}] What is the core principle or analytical model behind ${topic}?`,
+            answer: `${topic} is a high-priority topic in ${syllabus.name} (Unit ${unit.unitNumber}, weight ${unit.weightPercentage}).`,
+            explanation: `Official AP Rubric Focus: Master ${topic} definitions, solve quantitative problems, and justify reasoning using AP terminology.`,
             initialState: {
               stability: 1,
               difficulty: 5,
@@ -106,33 +107,9 @@ export default function StudyQueuePage() {
             },
           });
         }
+        count++;
       });
-    }
-
-    if (syllabus.questions && syllabus.questions.length > 0) {
-      syllabus.questions.forEach((q) => {
-        const qCardId = `fc-${q.id}`;
-        if (!seenIds.has(qCardId)) {
-          generated.push({
-            id: qCardId,
-            subjectSlug: selectedSlug,
-            subjectName: syllabus.name,
-            unit: q.unit,
-            topic: q.topic,
-            question: q.question,
-            answer: `Correct Answer: ${q.options[q.correct]}`,
-            explanation: q.explanation,
-            initialState: {
-              stability: 1,
-              difficulty: 5,
-              repetition: 0,
-              lapses: 0,
-              last_review: new Date().toISOString(),
-            },
-          });
-        }
-      });
-    }
+    });
 
     setCards(generated);
     setCurrentIndex(0);

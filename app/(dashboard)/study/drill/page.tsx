@@ -81,21 +81,28 @@ export default function WeakConceptDrillPage() {
     const generated: DrillItem[] = [];
     let count = 1;
 
-    if (syllabus.questions && syllabus.questions.length > 0) {
-      syllabus.questions.forEach((q) => {
-        if (!seenIds.has(q.id)) {
+    syllabus.units.forEach((unit) => {
+      unit.topics.forEach((topic) => {
+        const drillId = `drill-${selectedSlug}-${count}`;
+        if (!seenIds.has(drillId)) {
           generated.push({
-            id: q.id,
-            unit: q.unit,
-            topic: q.topic,
-            question: q.question,
-            options: q.options,
-            correct: q.correct,
-            explanation: q.explanation,
+            id: drillId,
+            unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
+            topic,
+            question: `[${syllabus.name}] Which statement accurately evaluates ${topic} in Unit ${unit.unitNumber}?`,
+            options: [
+              `Correct concept regarding ${topic}`,
+              `Misconception regarding ${topic}`,
+              `Incomplete model for ${topic}`,
+              `Irrelevant property regarding ${topic}`,
+            ],
+            correct: 0,
+            explanation: `${topic} is essential for ${syllabus.name} (Unit ${unit.unitNumber}). Option A is correct according to College Board AP scoring rubrics.`,
           });
         }
+        count++;
       });
-    }
+    });
 
     setQuestions(generated);
     setCurrentIndex(0);

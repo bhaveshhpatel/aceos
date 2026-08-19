@@ -66,85 +66,43 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         id: 'chem-q1',
         unit: 'Unit 3: Intermolecular Forces and Properties',
         topic: 'Beer-Lambert Law',
-        question: 'A student uses a spectrophotometer set at 635 nm to measure the absorbance of a solution of CuSO4. If the concentration of CuSO4 is doubled and the path length of the cuvette is halved, how does the new absorbance compare to the original absorbance?',
+        question: 'A student uses a spectrophotometer set at 635 nm to measure the absorbance of a solution of CuSO4. If the concentration of CuSO4 is doubled, which of the following best describes the change in absorbance?',
         options: [
-          'The absorbance remains the same.',
-          'The absorbance doubles.',
-          'The absorbance decreases to one-fourth of its original value.',
-          'The absorbance quadruples.'
+          'The absorbance doubles because absorbance is directly proportional to concentration according to A = εbc.',
+          'The absorbance decreases by half due to photon scattering.',
+          'The absorbance remains constant because wavelength is unchanged.',
+          'The absorbance quadruples as it scales with concentration squared.'
         ],
         correct: 0,
-        explanation: 'According to the Beer-Lambert Law (A = εbc), absorbance is directly proportional to both concentration (c) and path length (b). Doubling c (2x) and halving b (0.5x) yields A_new = ε * (0.5b) * (2c) = εbc = A_original.'
+        explanation: 'According to the Beer-Lambert Law (A = εbc), absorbance (A) is directly proportional to concentration (c). Doubling c doubles A.'
       },
       {
         id: 'chem-q2',
         unit: 'Unit 8: Acids and Bases',
         topic: 'Henderson-Hasselbalch Equation & Buffers',
-        question: 'A buffer solution is prepared by mixing equal volumes of 0.20 M CH3COOH (pKa = 4.74) and 0.20 M NaCH3COO. If 1.0 mL of 1.0 M HCl is added to 100 mL of this buffer, which of the following best describes the resulting system?',
+        question: 'A buffer solution contains equal equimolar amounts of CH3COOH (Ka = 1.8 × 10^-5, pKa = 4.74) and NaCH3COO. What is the pH of the buffer solution after a small amount of strong acid is added?',
         options: [
-          'The added H+ reacts with CH3COO- to form CH3COOH, resulting in a very slight decrease in pH.',
-          'The added H+ reacts with CH3COOH to produce Na+, causing a sharp increase in pH.',
-          'The buffer capacity is completely exhausted, causing the pH to instantly drop to 1.0.',
-          'The acetate ions precipitate as solid sodium acetate, leaving neutral water.'
+          'The pH decreases slightly below 4.74.',
+          'The pH increases sharply to approximately 9.0.',
+          'The pH remains exactly 7.00.',
+          'The pH drops instantly to 1.0.'
         ],
         correct: 0,
-        explanation: 'In an acetic acid / acetate buffer, added strong acid (H+) is neutralized by the weak conjugate base (CH3COO- + H+ -> CH3COOH). This slight increase in [CH3COOH] and decrease in [CH3COO-] results in only a minimal pH drop.'
+        explanation: 'When [HA] = [A-], pH = pKa = 4.74. Adding a small amount of strong acid converts some conjugate base A- into weak acid HA, decreasing pH slightly below 4.74.'
       },
       {
         id: 'chem-q3',
         unit: 'Unit 7: Equilibrium',
         topic: 'Le Chatelier’s Principle',
-        question: 'For the gas-phase reaction N2(g) + 3H2(g) ⇌ 2NH3(g) (ΔH° = -92 kJ/mol), which change will increase the equilibrium constant Kc?',
+        question: 'For the exothermic reaction N2(g) + 3H2(g) ⇌ 2NH3(g) (ΔH < 0), which condition will shift the equilibrium to favor the formation of NH3(g)?',
         options: [
-          'Decreasing the temperature of the system.',
-          'Increasing the total pressure by compressing the reaction vessel.',
-          'Adding a platinum catalyst to lower activation energy.',
-          'Injecting additional N2(g) at constant temperature.'
+          'Decreasing the temperature and increasing the total pressure of the container.',
+          'Increasing the temperature and expanding container volume.',
+          'Adding a catalyst without altering pressure.',
+          'Removing N2(g) from the vessel at constant volume.'
         ],
         correct: 0,
-        explanation: 'The value of the equilibrium constant Kc depends ONLY on temperature. For an exothermic reaction (ΔH < 0), lowering the temperature shifts equilibrium toward products, thereby increasing Kc.'
-      },
-      {
-        id: 'chem-q4',
-        unit: 'Unit 1: Atomic Structure and Properties',
-        topic: 'Photoelectron Spectroscopy (PES)',
-        question: 'A photoelectron spectrum of an unknown neutral element displays three peaks with binding energies of 104 MJ/mol, 6.84 MJ/mol, and 0.50 MJ/mol, with relative peak heights of 1:1:3 respectively. What is the identity of the element?',
-        options: [
-          'Nitrogen (1s^2 2s^2 2p^3)',
-          'Carbon (1s^2 2s^2 2p^2)',
-          'Oxygen (1s^2 2s^2 2p^4)',
-          'Boron (1s^2 2s^2 2p^1)'
-        ],
-        correct: 0,
-        explanation: 'Peak relative heights of 1:1:3 represent electron subshell occupancies of 2 : 2 : 3 electrons (1s^2 2s^2 2p^3), corresponding to Nitrogen (atomic number 7).'
-      },
-      {
-        id: 'chem-q5',
-        unit: 'Unit 5: Kinetics',
-        topic: 'Rate Law & Integrated Rate Law',
-        question: 'A reaction A -> B is found to follow second-order kinetics with respect to A. A plot of which variables will yield a straight line with a positive slope equal to the rate constant k?',
-        options: [
-          '1/[A] versus time t',
-          'ln[A] versus time t',
-          '[A] versus time t',
-          '[A]^2 versus time t'
-        ],
-        correct: 0,
-        explanation: 'The integrated rate law for a second-order reaction is 1/[A]_t = kt + 1/[A]_0. Plotting 1/[A] vs t gives a linear graph with slope = k.'
-      },
-      {
-        id: 'chem-q6',
-        unit: 'Unit 9: Thermodynamics',
-        topic: 'Gibbs Free Energy & Spontaneity',
-        question: 'A endothermic reaction (ΔH° > 0) has a positive entropy change (ΔS° > 0). Under what conditions will the reaction be thermodynamically favored (ΔG° < 0)?',
-        options: [
-          'Only at sufficiently high temperatures where TΔS° > ΔH°.',
-          'Only at very low temperatures where ΔH° dominates.',
-          'At all temperatures regardless of T.',
-          'The reaction is never thermodynamically favored under any temperature.'
-        ],
-        correct: 0,
-        explanation: 'ΔG° = ΔH° - TΔS°. When ΔH° > 0 and ΔS° > 0, ΔG° becomes negative when the TΔS° term magnitude exceeds ΔH°, which occurs at higher temperatures.'
+        explanation: 'Because the forward reaction is exothermic, lowering temperature shifts equilibrium right toward products. Increasing pressure shifts equilibrium toward fewer gas moles (4 moles reactant -> 2 moles product).'
       }
     ],
     flashcards: [
@@ -163,14 +121,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         question: 'What is the half-life equation for a first-order chemical reaction?',
         answer: 't_1/2 = 0.693 / k',
         explanation: 'First-order half-life is independent of initial reactant concentration.'
-      },
-      {
-        id: 'chem-fc3',
-        unit: 'Unit 8: Acids and Bases',
-        topic: 'Strong Acids Identification',
-        question: 'Name the six common strong acids encountered on the AP Chemistry exam.',
-        answer: 'HCl, HBr, HI, HNO3, H2SO4 (first dissociation), and HClO4.',
-        explanation: 'Strong acids ionize completely in aqueous solution, meaning Ka >> 1.'
       }
     ],
     frqPrompts: [
@@ -205,7 +155,7 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
       {
         id: 'calc-q1',
         unit: 'Unit 1: Limits and Continuity',
-        topic: 'Trigonometric Limits',
+        topic: 'Trigonometric Limits & L’Hôpital’s Rule',
         question: 'Evaluate the limit: lim (x -> 0) [ sin(3x) / (2x) ].',
         options: [
           '3/2',
@@ -214,7 +164,7 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
           'Undefined'
         ],
         correct: 0,
-        explanation: 'Using the special trigonometric limit lim(u->0)[sin(u)/u] = 1, lim(x->0)[sin(3x)/(2x)] = (3/2) * lim(x->0)[sin(3x)/(3x)] = (3/2) * 1 = 3/2.'
+        explanation: 'Using lim(u->0)[sin(u)/u] = 1, lim(x->0)[sin(3x)/(2x)] = (3/2) * lim(x->0)[sin(3x)/(3x)] = (3/2) * 1 = 3/2.'
       },
       {
         id: 'calc-q2',
@@ -228,7 +178,7 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
           '2x * e^(-x^2)'
         ],
         correct: 0,
-        explanation: 'By FTC Part 1 combined with the Chain Rule: g’(x) = e^(-(x^2)^2) * d/dx(x^2) = 2x * e^(-x^4).'
+        explanation: 'By FTC Part 1 and the Chain Rule: g’(x) = e^(-(x^2)^2) * d/dx(x^2) = 2x * e^(-x^4).'
       },
       {
         id: 'calc-q3',
@@ -243,48 +193,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'Volume V = π ∫_0^4 [sqrt(x)]^2 dx = π ∫_0^4 x dx = π [x^2/2]_0^4 = π (16/2) = 8π.'
-      },
-      {
-        id: 'calc-q4',
-        unit: 'Unit 3: Implicit Differentiation',
-        topic: 'Tangent Line Slope',
-        question: 'Find the slope of the line tangent to the curve x^2 + 2xy - y^3 = 7 at the point (2, 1).',
-        options: [
-          '6',
-          '2',
-          '-4',
-          '3/2'
-        ],
-        correct: 0,
-        explanation: 'Differentiating implicitly with respect to x: 2x + 2y + 2x(dy/dx) - 3y^2(dy/dx) = 0. Substituting (2, 1): 4 + 2 + 4(dy/dx) - 3(dy/dx) = 0 => 6 + dy/dx = 0 => dy/dx = -6. Correct option slope = 6.'
-      },
-      {
-        id: 'calc-q5',
-        unit: 'Unit 5: Analytical Applications of Differentiation',
-        topic: 'Points of Inflection',
-        question: 'If f’(x) = (x - 1)^2 (x - 3), at which value of x does f(x) have a relative minimum?',
-        options: [
-          'x = 3',
-          'x = 1',
-          'x = 0',
-          'x = 2'
-        ],
-        correct: 0,
-        explanation: 'f’(x) changes sign from negative to positive at x = 3 because (x - 1)^2 is always positive, and (x - 3) changes sign from negative to positive at x = 3.'
-      },
-      {
-        id: 'calc-q6',
-        unit: 'Unit 7: Differential Equations',
-        topic: 'Separation of Variables',
-        question: 'Solve the differential equation dy/dx = 2x y with initial condition y(0) = 3.',
-        options: [
-          'y = 3 e^(x^2)',
-          'y = e^(x^2) + 2',
-          'y = 3x^2 + 3',
-          'y = 3 e^(2x)'
-        ],
-        correct: 0,
-        explanation: 'Separating variables: dy/y = 2x dx => ln|y| = x^2 + C => y = C e^(x^2). Given y(0) = 3 => C = 3, so y = 3 e^(x^2).'
       }
     ],
     flashcards: [
@@ -295,14 +203,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         question: 'What conditions must f(x) satisfy on [a, b] for the Mean Value Theorem to apply?',
         answer: 'f must be continuous on [a, b] and differentiable on (a, b).',
         explanation: 'If satisfied, there exists c in (a, b) such that f’(c) = [f(b) - f(a)] / (b - a).'
-      },
-      {
-        id: 'calc-fc2',
-        unit: 'Unit 6: Integration',
-        topic: 'Average Value Formula',
-        question: 'What is the formula for the average value of a continuous function f(x) on the interval [a, b]?',
-        answer: 'f_avg = (1 / (b - a)) * ∫_a^b f(x) dx',
-        explanation: 'Represents the height of a rectangle with base (b - a) having the same area under the curve.'
       }
     ],
     frqPrompts: [
@@ -362,34 +262,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'The New Deal created federal programs (Social Security, FDIC, SEC) establishing federal economic intervention and social welfare.'
-      },
-      {
-        id: 'push-q3',
-        unit: 'Period 8: 1945–1980',
-        topic: 'Cold War Containment Policy',
-        question: 'The United States policy of "containment" as articulated by George F. Kennan in 1947 was primarily designed to:',
-        options: [
-          'Prevent the spread of Soviet geopolitical influence and communism beyond its post-WWII borders.',
-          'Dismantle European colonial empires in Africa and Asia.',
-          'Establish nuclear disarmament treaties with Asian powers.',
-          'Promote free trade agreements across the Western Hemisphere.'
-        ],
-        correct: 0,
-        explanation: 'Kennan’s "Long Telegram" recommended long-term, patient containment of Soviet expansionist tendencies, forming the foundation of Truman doctrine foreign policy.'
-      },
-      {
-        id: 'push-q4',
-        unit: 'Period 4: 1800–1848',
-        topic: 'Jacksonian Democracy & Nullification Crisis',
-        question: 'John C. Calhoun’s "South Carolina Exposition and Protest" (1828) argued that:',
-        options: [
-          'Individual states possessed the constitutional right to declare unconstitutional federal tariffs null and void within their borders.',
-          'The federal government had absolute authority to prohibit slavery in Western territories.',
-          'Native American tribes should be granted full citizenship rights.',
-          'The President held imperial authority over Supreme Court rulings.'
-        ],
-        correct: 0,
-        explanation: 'Calhoun articulated the doctrine of nullification in response to the Tariff of Abominations, asserting state sovereignty over federal legislation.'
       }
     ],
     flashcards: [
@@ -400,14 +272,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         question: 'What principle did the 14th Amendment establish in 1868?',
         answer: 'Equal protection under the law and citizenship for all persons born or naturalized in the US.',
         explanation: 'Overturned the Dred Scott decision and guaranteed due process.'
-      },
-      {
-        id: 'push-fc2',
-        unit: 'Period 3: 1754–1800',
-        topic: 'Proclamation of 1763',
-        question: 'What was the primary British goal behind issuing the Proclamation Line of 1763?',
-        answer: 'To prevent Anglo-American colonial settlement west of the Appalachian Mountains and avoid costly conflicts with Native Americans.',
-        explanation: 'Fostered intense colonial resentment following the French and Indian War.'
       }
     ],
     frqPrompts: [
@@ -452,34 +316,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'q^2 = 0.16 => q = sqrt(0.16) = 0.40. Since p + q = 1.0, p = 1.0 - 0.40 = 0.60.'
-      },
-      {
-        id: 'bio-q2',
-        unit: 'Unit 6: Gene Expression and Regulation',
-        topic: 'lac Operon Gene Regulation',
-        question: 'In E. coli, what occurs when lactose is present in the environment but glucose is absent?',
-        options: [
-          'Allolactose binds to the repressor, removing it from the operator, and high cAMP levels activate CAP, resulting in maximum transcription.',
-          'The repressor binds tightly to the operator, preventing RNA polymerase transcription.',
-          'High glucose levels inhibit CAP, preventing any lac operon expression.',
-          'The operon is permanently degraded by restriction enzymes.'
-        ],
-        correct: 0,
-        explanation: 'Lactose produces allolactose which inactivates the lac repressor. Low glucose increases cAMP, binding CAP to activate RNA polymerase for high transcription.'
-      },
-      {
-        id: 'bio-q3',
-        unit: 'Unit 2: Cell Structure and Function',
-        topic: 'Surface Area-to-Volume Ratio',
-        question: 'Spherical cell A has a radius of 1 μm, while spherical cell B has a radius of 3 μm. How does the surface area-to-volume ratio of cell A compare to cell B?',
-        options: [
-          'Cell A has a surface area-to-volume ratio 3 times greater than Cell B.',
-          'Cell B has a surface area-to-volume ratio 3 times greater than Cell A.',
-          'Both cells have identical surface area-to-volume ratios.',
-          'Cell A has a surface area-to-volume ratio 9 times greater than Cell B.'
-        ],
-        correct: 0,
-        explanation: 'SA/V ratio for a sphere = (4πr^2)/(4/3 πr^3) = 3/r. For r=1, ratio = 3. For r=3, ratio = 1. Cell A ratio is 3x greater.'
       }
     ],
     flashcards: [
@@ -535,20 +371,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'Merchants utilized predictable monsoon winds and lateen sail technology to navigate Indian Ocean trade routes connecting East Africa, Arabia, India, and Southeast Asia.'
-      },
-      {
-        id: 'wh-q2',
-        unit: 'Unit 4: Transoceanic Interconnections (1450–1750)',
-        topic: 'Columbian Exchange Demographic Impacts',
-        question: 'The global transfer of crops, animals, and diseases known as the Columbian Exchange resulted in which immediate demographic consequence in the Americas?',
-        options: [
-          'A catastrophic decline in Indigenous populations due to Afro-Eurasian pathogens such as smallpox.',
-          'An immediate drop in European population due to American crop cultivation.',
-          'The complete migration of Asian populations to South America.',
-          'The abolition of coerced labor systems across Atlantic trade routes.'
-        ],
-        correct: 0,
-        explanation: 'Indigenous populations lacked immunity to Afro-Eurasian pathogens (smallpox, measles), resulting in mortality rates estimated at 50%–90% in affected regions.'
       }
     ],
     flashcards: [
@@ -602,20 +424,6 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'A concession demonstrates fairness and intellectual rigor, enhancing speaker credibility (ethos) while clarifying thesis boundaries.'
-      },
-      {
-        id: 'lang-q2',
-        unit: 'Unit 4: Style, Diction, and Syntax',
-        topic: 'Rhetorical Analysis & Tone',
-        question: 'An author uses parallel sentence structures and urgent imperative verbs throughout a speech. Which rhetorical effect is primarily achieved?',
-        options: [
-          'Building rhythmic momentum and compelling the audience to immediate action.',
-          'Creating an informal, humorous conversational tone.',
-          'Obscuring the speaker’s true intentions through passive voice.',
-          'Demonstrating scientific objectivity.'
-        ],
-        correct: 0,
-        explanation: 'Parallel syntax coupled with imperative phrasing creates cadence and rhetorical urgency, energizing the audience.'
       }
     ],
     flashcards: [
