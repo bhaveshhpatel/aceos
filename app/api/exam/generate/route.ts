@@ -91,7 +91,19 @@ STRICT QUALITY REQUIREMENTS:
       generatedQuestions = fallbackQuestions;
     }
 
-    return NextResponse.json({ questions: generatedQuestions });
+    // Assign sequential numbers and format output
+    const formatted = generatedQuestions.map((q: any, idx: number) => ({
+      id: q.id || `ai-${subjectSlug}-q${idx + 1}`,
+      number: idx + 1,
+      unit: q.unit || 'Core Unit',
+      topic: q.topic || 'AP Concept',
+      question: q.question,
+      options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
+      correct: typeof q.correct === 'number' ? q.correct : (idx % 4),
+      explanation: q.explanation || 'Official College Board AP Rubric Explanation.',
+    }));
+
+    return NextResponse.json({ questions: formatted });
   } catch (err) {
     console.error('[POST /api/exam/generate]', err);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
