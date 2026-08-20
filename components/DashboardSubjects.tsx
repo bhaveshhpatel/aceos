@@ -88,10 +88,10 @@ export function DashboardSubjects({ initialSubjects }: { initialSubjects: Subjec
 
           <div className="mt-6 space-y-2">
             <Link
-              href={`/diagnostic/${subject.slug}`}
-              className="block w-full rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              href={`/study/queue?subject=${subject.slug}`}
+              className="block w-full rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition-all"
             >
-              Take Diagnostic
+              🚀 Daily Practice Cards
             </Link>
             <div className="grid grid-cols-2 gap-2">
               <Link
