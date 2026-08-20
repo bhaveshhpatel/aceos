@@ -144,7 +144,7 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
       const isFailoverEnabled = process.env.ENABLE_AI_FAILOVER === 'true';
 
       if (isFailoverEnabled) {
-        // Check if any secondary fallbacks are available with DISTINCT env keys and value !== primaryApiKey
+        // Automatic multi-provider failover when primary API key rate limits, times out, or fails
         const rawFallbacks = modelMap.provider_fallbacks || [];
         const activeFallbacks = rawFallbacks.filter(
           (f: any) =>
