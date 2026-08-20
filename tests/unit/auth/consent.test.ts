@@ -60,7 +60,7 @@ import { POST as sendPOST } from '@/app/api/auth/consent/send/route';
 import { GET as approveGET } from '@/app/api/auth/consent/approve/route';
 import { GET as denyGET } from '@/app/api/auth/consent/deny/route';
 
-const SECRET_KEY = new Uint8Array(Buffer.from('default-secret-key-min-32-chars'));
+const SECRET_KEY = new Uint8Array(Buffer.from('default-secret-key-at-least-32-bytes-long!'));
 
 describe('Parental Consent API Endpoints', () => {
   beforeEach(() => {

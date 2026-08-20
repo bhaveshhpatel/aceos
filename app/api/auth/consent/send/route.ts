@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Generate signed consent JWT (7 day exp)
-    const jwtSecret = process.env.CONSENT_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'default-secret-key-min-32-chars';
+    const jwtSecret = process.env.CONSENT_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'default-secret-key-at-least-32-bytes-long!';
     const secretKey = new Uint8Array(Buffer.from(jwtSecret));
 
     const token = await new SignJWT({ student_id: studentId, parent_email })

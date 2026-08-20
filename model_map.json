@@ -22,6 +22,13 @@
       "temperature": 0.3,
       "reasoning": "MCQ evaluation is lower stakes — mini is sufficient and cheaper"
     },
+    "exam_generation": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "max_tokens": 4000,
+      "temperature": 0.3,
+      "reasoning": "Generating full-length 50-question AP exams requires large token budget"
+    },
     "wrong_answer_explainer": {
       "provider": "groq",
       "model": "llama-3.3-70b-versatile",
