@@ -190,10 +190,10 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
       {/* Main Workspace */}
       <div className="flex flex-1">
         {/* Question & Option Panel */}
-        <main className="flex flex-1 flex-col justify-between p-8">
-          <div className="mx-auto max-w-3xl space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-              <div className="space-y-1">
+        <main className="flex flex-1 flex-col justify-between p-4 sm:p-6">
+          <div className="mx-auto max-w-3xl space-y-4 w-full">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="space-y-0.5">
                 <span className="text-xs font-semibold text-slate-400 uppercase block">
                   Question {currentQ.number} of {questions.length}
                 </span>
@@ -203,30 +203,30 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               </div>
               <button
                 onClick={() => toggleFlag(currentQ.id)}
-                className={`flex items-center space-x-1.5 text-xs font-semibold ${
+                className={`flex items-center space-x-1 text-xs font-semibold ${
                   flagged[currentQ.id] ? 'text-amber-400' : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
                 <span>🚩</span>
-                <span>{flagged[currentQ.id] ? 'Flagged for Review' : 'Mark for Review'}</span>
+                <span>{flagged[currentQ.id] ? 'Flagged' : 'Mark'}</span>
               </button>
             </div>
 
-            <p className="text-lg font-medium text-slate-100">{currentQ.question}</p>
+            <p className="text-base font-medium text-slate-100">{currentQ.question}</p>
 
-            <div className="space-y-3 pt-2">
+            <div className="space-y-2 pt-1">
               {currentQ.options.map((opt, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSelectOption(idx)}
-                  className={`flex w-full items-center space-x-4 rounded-lg border p-4 text-left transition-all ${
+                  className={`flex w-full items-center space-x-3 rounded-lg border p-3 text-left transition-all ${
                     userAnswers[currentQ.id] === idx
                       ? 'border-indigo-500 bg-indigo-950/60 ring-1 ring-indigo-500'
                       : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
                   }`}
                 >
                   <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs font-bold ${
+                    className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
                       userAnswers[currentQ.id] === idx
                         ? 'border-indigo-500 bg-indigo-600 text-white'
                         : 'border-slate-700 text-slate-400'
@@ -234,18 +234,18 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
                   >
                     {String.fromCharCode(65 + idx)}
                   </span>
-                  <span className="text-sm text-slate-200">{opt}</span>
+                  <span className="text-xs sm:text-sm text-slate-200">{opt}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Bottom Control Bar */}
-          <div className="mx-auto flex w-full max-w-3xl justify-between pt-8 border-t border-slate-800">
+          <div className="mx-auto flex w-full max-w-3xl justify-between pt-4 border-t border-slate-800 mt-4">
             <button
               disabled={currentIdx === 0}
               onClick={() => setCurrentIndex((i) => i - 1)}
-              className="rounded bg-slate-800 px-5 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-40"
+              className="rounded bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-40"
             >
               Previous
             </button>
@@ -253,7 +253,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
             {currentIdx < questions.length - 1 ? (
               <button
                 onClick={() => setCurrentIndex((i) => i + 1)}
-                className="rounded bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+                className="rounded bg-indigo-600 px-5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
               >
                 Next
               </button>
@@ -261,7 +261,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               <button
                 onClick={handleSubmitExam}
                 disabled={submitting}
-                className="rounded bg-green-600 px-6 py-2 text-sm font-semibold text-white hover:bg-green-500 disabled:opacity-50"
+                className="rounded bg-green-600 px-5 py-1.5 text-xs font-semibold text-white hover:bg-green-500 disabled:opacity-50"
               >
                 {submitting ? 'Submitting Exam...' : 'Finish Exam Section'}
               </button>
