@@ -121,7 +121,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
         selected_option: userAnswers[q.id] ?? null,
         correct_option: q.correct,
         is_correct: userAnswers[q.id] === q.correct,
-        explanation: `[College Board AP Rubric] ${q.topic} in ${q.unit}. Option ${String.fromCharCode(65 + q.correct)} is correct.`,
+        explanation: q.explanation || `[College Board AP Rubric] ${q.topic} in ${q.unit}. Option ${String.fromCharCode(65 + q.correct)} is correct.`,
       })),
     };
 
