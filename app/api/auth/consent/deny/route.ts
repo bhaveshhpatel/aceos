@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/auth/consent-expired`);
   }
 
-  const jwtSecret = process.env.CONSENT_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'default-secret-key-min-32-chars';
+  const jwtSecret = process.env.CONSENT_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'default-secret-key-at-least-32-bytes-long!';
   const secretKey = new Uint8Array(Buffer.from(jwtSecret));
 
   let student_id: string;
