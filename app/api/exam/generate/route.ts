@@ -89,10 +89,10 @@ ${targetUnits.map((u) => `- Unit ${u.unitNumber}: ${u.unitName} (${u.topics.join
 
 STRICT QUALITY REQUIREMENTS:
 1. Every single question MUST be a REAL, highly realistic, contextual AP exam question featuring actual chemical formulas, stoichiometric math, calculus limits/derivatives/integrals, historical primary sources, biological pathways/phenotypes, or authentic passage excerpts.
-2. ABSOLUTELY NO boilerplate or placeholder templates like "An AP student conducts an experiment..." or generic "Option A/B/C/D" descriptions.
-3. Provide 4 realistic, distinct options per question [Option A, Option B, Option C, Option D] with plausible distractors reflecting common student misconceptions.
+2. ABSOLUTELY NO repeated questions or identical question stems.
+3. Provide 4 realistic, distinct options per question [Option A, Option B, Option C, Option D] with plausible distractors.
 4. Distribute the correct answer index evenly across 0 (A), 1 (B), 2 (C), and 3 (D).
-5. Provide a detailed, multi-sentence College Board AP rubric explanation explaining explicitly WHY the correct answer is right (citing equations, theorems, historical context, or mechanisms) and WHY the alternative distractors are incorrect.
+5. Provide a detailed, multi-sentence College Board AP rubric explanation explaining explicitly WHY the correct answer is right and WHY distractors are wrong.
 6. Return ONLY a valid JSON array of 10 objects with keys: "id", "unit", "topic", "question", "options", "correct", "explanation". Do NOT wrap in markdown code blocks.`;
 
       chunkPromises.push(

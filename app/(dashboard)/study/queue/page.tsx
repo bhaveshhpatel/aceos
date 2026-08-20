@@ -24,47 +24,59 @@ export default function StudyQueuePage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  // Fetch student enrolled subjects or default to all catalog subjects
+  // Fetch student enrolled subjects or default to all catalog subjects, checking query params first
   useEffect(() => {
     async function fetchSubjects() {
+      let initialSubjectFromUrl = '';
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        initialSubjectFromUrl = params.get('subject') || params.get('subject_slug') || '';
+      }
+
+      let activeList: Array<{ name: string; slug: string }> = [];
+
       try {
         const res = await fetch('/api/auth/subjects');
         if (res.ok) {
           const data = await res.json();
           if (data.subjects && data.subjects.length > 0) {
-            setEnrolledSubjects(data.subjects);
-            setSelectedSlug(data.subjects[0].slug);
-            return;
+            activeList = data.subjects;
           }
         }
       } catch (err) {
         console.error('Failed to fetch student enrolled subjects', err);
       }
 
-      // Local storage fallback if API unavailable
-      if (typeof window !== 'undefined') {
+      // Local storage fallback if API empty/unavailable
+      if (activeList.length === 0 && typeof window !== 'undefined') {
         const saved = localStorage.getItem('student_selected_slugs');
         if (saved) {
           try {
             const slugs: string[] = JSON.parse(saved);
-            const list = slugs.map((slug) => {
+            activeList = slugs.map((slug) => {
               const found = OFFICIAL_AP_SYLLABI[slug];
-              return { name: found ? found.name : slug.toUpperCase(), slug };
+              return { name: found ? found.name : slug.toUpperCase().replace('-', ' '), slug };
             });
-            setEnrolledSubjects(list);
-            if (list.length > 0) setSelectedSlug(list[0].slug);
-            return;
           } catch (e) {}
         }
       }
 
-      // Default fallback list
-      setEnrolledSubjects([
-        { name: 'AP Chemistry', slug: 'ap-chemistry' },
-        { name: 'AP Calculus AB', slug: 'ap-calculus-ab' },
-        { name: 'AP US History', slug: 'ap-us-history' },
-      ]);
+      if (activeList.length === 0) {
+        activeList = Object.keys(OFFICIAL_AP_SYLLABI).map((slug) => ({
+          name: OFFICIAL_AP_SYLLABI[slug].name,
+          slug,
+        }));
+      }
+
+      setEnrolledSubjects(activeList);
+
+      if (initialSubjectFromUrl && OFFICIAL_AP_SYLLABI[initialSubjectFromUrl]) {
+        setSelectedSlug(initialSubjectFromUrl);
+      } else if (activeList.length > 0) {
+        setSelectedSlug(activeList[0].slug);
+      }
     }
+
     fetchSubjects();
   }, []);
 
