@@ -44,13 +44,21 @@ STRICT QUALITY REQUIREMENTS:
 5. Provide a detailed, multi-sentence College Board AP rubric explanation explaining explicitly WHY the correct answer is right (citing equations, theorems, historical context, or mechanisms) and WHY the alternative distractors are incorrect.
 6. Return ONLY a valid JSON array of 10 objects with keys: "id", "unit", "topic", "question", "options", "correct", "explanation". Do NOT wrap in markdown code blocks.`;
 
-      const cleanJson = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(cleanJson);
-      if (Array.isArray(parsed) && parsed.length >= 10) {
-        generatedQuestions = parsed;
-      }
-    } catch (aiErr) {
-      console.warn('[Exam Generator AI Notice] Primary AI call returned fallback:', aiErr);
+      chunkPromises.push(
+        callAI({
+          route: 'exam_generation',
+          messages: [{ role: 'user', content: chunkPrompt }],
+        })
+          .then((res) => {
+            const cleanJson = res.content.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanJson);
+            return Array.isArray(parsed) ? parsed : [];
+          })
+          .catch((err) => {
+            console.warn(`[Exam Generator Batch ${i + 1}] AI call error:`, err);
+            return [];
+          })
+      );
     }
 
     const chunkResults = await Promise.all(chunkPromises);
