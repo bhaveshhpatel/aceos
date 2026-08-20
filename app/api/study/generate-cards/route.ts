@@ -34,49 +34,29 @@ REQUIREMENTS:
       });
 
       const cleanJson = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
-      generatedCards = JSON.parse(cleanJson);
+      const parsed = JSON.parse(cleanJson);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        generatedCards = parsed;
+      }
     } catch (aiErr) {
-      console.warn('[Card Generator AI Fallback] Using syllabus seed bank:', aiErr);
+      console.warn('[Card Generator AI Notice] Primary AI call returned fallback:', aiErr);
     }
 
     if (!Array.isArray(generatedCards) || generatedCards.length < 4) {
-      const fallbackCards: any[] = [];
-      let cCount = 1;
-
-      if (syllabus.flashcards && syllabus.flashcards.length > 0) {
-        syllabus.flashcards.forEach((fc) => {
-          fallbackCards.push({
-            id: fc.id,
-            unit: fc.unit,
-            topic: fc.topic,
-            question: fc.question,
-            answer: fc.answer,
-            explanation: fc.explanation,
-          });
-        });
-        cCount = fallbackCards.length + 1;
-      }
-
-      syllabus.units.forEach((unit) => {
-        unit.topics.forEach((topic) => {
-          if (fallbackCards.length < 8) {
-            fallbackCards.push({
-              id: `ai-fc-${subjectSlug}-${cCount}`,
-              unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
-              topic,
-              question: `[${syllabus.name}] What is the key concept, formula, or historical significance of ${topic}?`,
-              answer: `${topic} is a high-frequency AP concept in ${syllabus.name} (Unit ${unit.unitNumber}). Master its definition and problem-solving steps.`,
-              explanation: `[College Board AP Rubric] ${topic} accounts for a major portion of Unit ${unit.unitNumber} (${unit.weightPercentage} of AP exam). Focus on clear definitions and quantitative justifications.`,
-            });
-            cCount++;
-          }
-        });
-      });
-
-      generatedCards = fallbackCards;
+      const seedCards = syllabus.flashcards || [];
+      generatedCards = [...generatedCards, ...seedCards];
     }
 
-    return NextResponse.json({ cards: generatedCards });
+    const formatted = generatedCards.map((c: any, idx: number) => ({
+      id: c.id || `card-${subjectSlug}-${idx + 1}`,
+      unit: c.unit || 'AP Core Unit',
+      topic: c.topic || 'Core Concept',
+      question: c.question,
+      answer: c.answer,
+      explanation: c.explanation || 'Official College Board AP Rubric Explanation.',
+    }));
+
+    return NextResponse.json({ cards: formatted });
   } catch (err) {
     console.error('[POST /api/study/generate-cards]', err);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
