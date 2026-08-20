@@ -60,7 +60,7 @@ STRICT QUALITY REQUIREMENTS:
     }
 
     // Assign sequential numbers and format output
-    const formatted = fullQuestionsList.map((q: any, idx: number) => ({
+    const formatted = generatedQuestions.map((q: any, idx: number) => ({
       id: q.id || `ai-${subjectSlug}-q${idx + 1}`,
       number: idx + 1,
       unit: q.unit || 'Core Unit',
