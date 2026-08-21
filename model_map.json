@@ -88,10 +88,10 @@
     }
   },
   "provider_fallbacks": [
-    { "provider": "google", "model": "gemini-2.5-flash" },
-    { "provider": "openrouter", "model": "deepseek/deepseek-r1:free" },
-    { "provider": "nvidia", "model": "deepseek-ai/deepseek-v3" },
     { "provider": "groq", "model": "llama-3.3-70b-versatile" },
+    { "provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct" },
+    { "provider": "google", "model": "gemini-2.5-flash" },
+    { "provider": "nvidia", "model": "deepseek-ai/deepseek-v3" },
     { "provider": "openai", "model": "gpt-4o-mini" }
   ]
 }
