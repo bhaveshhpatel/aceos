@@ -1,43 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { OFFICIAL_AP_SYLLABI, APUnitSyllabus } from '@/config/ap_syllabi';
+import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
 import { callAI } from '@/lib/ai/gateway';
 
 export const dynamic = 'force-dynamic';
-
-function generateSubjectTopicCard(
-  subjectName: string,
-  category: string,
-  unit: APUnitSyllabus,
-  topic: string,
-  index: number
-) {
-  let qText = '';
-  let aText = '';
-  let expText = '';
-
-  if (category === 'STEM') {
-    qText = `What fundamental AP principle or mathematical relationship governs ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}?`;
-    aText = `${topic} describes critical quantitative relationships, rate laws, or structural equilibrium parameters essential for ${subjectName}.`;
-    expText = `[College Board AP Rubric] ${topic} in ${unit.unitName} requires mastering core formulas, experimental design, and quantitative interpretations on the AP exam.`;
-  } else if (category === 'HUMANITIES') {
-    qText = `How did developments in ${topic} influence institutional or social structures during Unit ${unit.unitNumber}: ${unit.unitName}?`;
-    aText = `${topic} triggered significant political centralization, economic trade shift, or cultural reform within this period.`;
-    expText = `[College Board AP Rubric] ${topic} in ${unit.unitName} is evaluated on Section I and II of the ${subjectName} exam for historical causation and contextualization.`;
-  } else {
-    qText = `How does an author effectively develop a claim regarding ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}?`;
-    aText = `By integrating structured evidence, syntactical choice, and logical line of reasoning centered on ${topic}.`;
-    expText = `[College Board AP Rubric] ${topic} in ${unit.unitName} focuses on analyzing rhetorical strategies, thesis development, and argument cohesion.`;
-  }
-
-  return {
-    id: `card-${unit.unitNumber}-${index + 1}`,
-    unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
-    topic,
-    question: qText,
-    answer: aText,
-    explanation: expText,
-  };
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,9 +10,10 @@ export async function POST(req: NextRequest) {
     const subjectSlug = body.subject_slug || 'ap-chemistry';
 
     const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
+    const seedCards = syllabus.flashcards || [];
 
     const prompt = `You are an expert AP tutor for ${syllabus.name}.
-Generate 15 authentic, high-quality flashcards for high school AP students covering key concepts:
+Generate 20 authentic, high-quality flashcards for high school AP students covering key concepts:
 ${syllabus.units.map((u) => `- Unit ${u.unitNumber}: ${u.unitName} (${u.topics.join(', ')})`).join('\n')}
 
 REQUIREMENTS:
@@ -82,37 +48,11 @@ REQUIREMENTS:
     });
 
     // 2. Add seed cards from syllabus
-    const seedCards = syllabus.flashcards || [];
     seedCards.forEach((fc) => {
       if (fc && fc.question && !uniqueCardsMap.has(fc.question.trim())) {
         uniqueCardsMap.set(fc.question.trim(), fc);
       }
     });
-
-    // 3. Fill up to 50 cards across topics
-    let cardCount = uniqueCardsMap.size;
-    let uIdx = 0;
-
-    while (uniqueCardsMap.size < 50 && syllabus.units.length > 0) {
-      const unit = syllabus.units[uIdx % syllabus.units.length];
-      for (const topic of unit.topics) {
-        if (uniqueCardsMap.size >= 50) break;
-
-        const dynamicCard = generateSubjectTopicCard(
-          syllabus.name,
-          syllabus.category,
-          unit,
-          topic,
-          cardCount
-        );
-
-        if (!uniqueCardsMap.has(dynamicCard.question.trim())) {
-          uniqueCardsMap.set(dynamicCard.question.trim(), dynamicCard);
-          cardCount++;
-        }
-      }
-      uIdx++;
-    }
 
     const finalCardsList = Array.from(uniqueCardsMap.values()).slice(0, 50);
 

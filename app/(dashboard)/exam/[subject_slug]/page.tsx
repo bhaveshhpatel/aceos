@@ -35,6 +35,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               explanation: q.explanation || 'Official AP Rubric Explanation.',
             }));
             setQuestions(formatted);
+            return;
           }
         }
       } catch (err) {
@@ -42,6 +43,22 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
       } finally {
         setLoadingQuestions(false);
       }
+
+      // Safety Net: Populate questions if API returned empty
+      const syllabus = OFFICIAL_AP_SYLLABI[params.subject_slug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
+      const seedList = syllabus.questions || [];
+      const fallbackList: any[] = [];
+      let idx = 0;
+      while (fallbackList.length < 50 && seedList.length > 0) {
+        const item = seedList[idx % seedList.length];
+        fallbackList.push({
+          ...item,
+          id: `${item.id}-fallback-${fallbackList.length + 1}`,
+          number: fallbackList.length + 1,
+        });
+        idx++;
+      }
+      setQuestions(fallbackList);
     }
     loadAiQuestions();
   }, [params.subject_slug]);
