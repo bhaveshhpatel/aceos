@@ -88,8 +88,8 @@
     }
   },
   "provider_fallbacks": [
-    { "provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct" },
     { "provider": "groq", "model": "llama-3.3-70b-versatile" },
+    { "provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct" },
     { "provider": "google", "model": "gemini-2.5-flash" },
     { "provider": "nvidia", "model": "deepseek-ai/deepseek-v3" },
     { "provider": "openai", "model": "gpt-4o-mini" }
