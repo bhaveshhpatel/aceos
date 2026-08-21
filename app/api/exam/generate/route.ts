@@ -18,41 +18,41 @@ function generateSubjectTopicQuestion(
   let explanation = '';
 
   if (category === 'STEM') {
-    stem = `In an experiment analyzing ${topic} (${unit.unitName}), an AP student records quantitative observations. Which of the following analytical statements correctly describes the fundamental principles governing ${topic}?`;
+    stem = `In an advanced lab exercise analyzing ${topic} (${unit.unitName}), an AP student collects empirical trial data. Which of the following analytical statements best explains the underlying physical and chemical principles governing ${topic}?`;
     options = [
-      `The quantitative rate and equilibrium constant shift directly according to standard ${topic} models.`,
-      `The molecular geometry and electrostatic interactions alter structural stability under controlled conditions.`,
-      `The mathematical derivative and boundary conditions govern the conservation principle for ${topic}.`,
-      `The thermodynamic free energy and activation barrier dictate the rate-determining step in ${topic}.`,
+      `The equilibrium constant and reaction kinetics shift according to standard College Board models for ${topic}.`,
+      `The molecular geometry and electrostatic intermolecular forces determine the phase stability of ${topic}.`,
+      `The derivative rate law and boundary constraints establish the conservation of energy in ${topic}.`,
+      `The thermodynamic free energy change and activation barrier control the rate-limiting step in ${topic}.`,
     ];
     explanation = `[College Board AP Rubric] ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}. Option ${String.fromCharCode(
       65 + correctOpt
-    )} is correct because it accurately states the core physical and chemical laws governing ${topic}.`;
+    )} is correct because it accurately applies the fundamental theoretical framework governing ${topic}.`;
   } else if (category === 'HUMANITIES') {
-    stem = `Which of the following historical or rhetorical developments best illustrates the significance of ${topic} within ${unit.unitName} during this era?`;
+    stem = `Which of the following historical developments or primary source perspectives best illustrates the broader historical significance of ${topic} within ${unit.unitName}?`;
     options = [
-      `The consolidation of state authority and expansion of transregional trade networks associated with ${topic}.`,
-      `The ideological opposition and socioeconomic restructuring triggered by developments in ${topic}.`,
-      `The primary source documentation and diplomatic negotiations concerning ${topic}.`,
-      `The cultural synthesis and institutional reforms influenced by ${topic} across major empires.`,
+      `The expansion of state centralization and transregional political influence connected to ${topic}.`,
+      `The socioeconomic reorganization and ideological debate stimulated by changes in ${topic}.`,
+      `The diplomatic treaties and institutional governance documented regarding ${topic}.`,
+      `The cultural exchange and demographic shifts influenced by ${topic} across major geographic regions.`,
     ];
     explanation = `[College Board AP Rubric] ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}. Option ${String.fromCharCode(
       65 + correctOpt
-    )} is correct. ${topic} represents a crucial College Board historical/rhetorical concept tested on the AP exam.`;
+    )} is correct. ${topic} is a pivotal historical development evaluated on the official AP exam.`;
   } else {
-    stem = `An AP student analyzes an authentic text excerpt regarding ${topic} in ${unit.unitName}. Which of the following best characterizes the author's primary rhetorical claim?`;
+    stem = `An AP student analyzes an authentic passage excerpt concerning ${topic} in ${unit.unitName}. Which of the following best characterizes the author's main claim and line of reasoning?`;
     options = [
-      `Establishing a defensible thesis through structured textual evidence and logical line of reasoning regarding ${topic}.`,
-      `Employing stylized diction and syntactical repetition to emphasize perspective on ${topic}.`,
-      `Acknowledging counterarguments through strategic concessions and persuasive appeals concerning ${topic}.`,
-      `Synthesizing historical context and audience awareness to reinforce the central claim on ${topic}.`,
+      `Establishing a defensible thesis supported by coherent textual evidence regarding ${topic}.`,
+      `Employing strategic diction and syntactical parallelism to emphasize the argument on ${topic}.`,
+      `Addressing counterarguments through nuanced concessions and persuasive appeals concerning ${topic}.`,
+      `Synthesizing historical context and audience purpose to reinforce the central claim regarding ${topic}.`,
     ];
     explanation = `[College Board AP Rubric] ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}. Option ${String.fromCharCode(
       65 + correctOpt
-    )} is correct. ${topic} requires evaluating argument structure, claim development, and rhetorical choices.`;
+    )} is correct because it correctly analyzes the author's rhetorical strategy and argument structure regarding ${topic}.`;
   }
 
-  // Ensure the correct answer is placed at index `correctOpt`
+  // Ensure correct answer choice is at index `correctOpt`
   const correctChoiceText = options[0];
   options[0] = options[correctOpt];
   options[correctOpt] = correctChoiceText;
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
 
-    // Divide 50 questions into 5 batched chunk requests (10 questions per chunk) to avoid LLM token truncation
+    // Batched AI requests: 5 parallel requests x 10 items = 50 total questions
     const chunksCount = 5;
     const chunkPromises = [];
 
@@ -89,8 +89,8 @@ ${targetUnits.map((u) => `- Unit ${u.unitNumber}: ${u.unitName} (${u.topics.join
 
 STRICT QUALITY REQUIREMENTS:
 1. Every single question MUST be a REAL, highly realistic, contextual AP exam question featuring actual chemical formulas, stoichiometric math, calculus limits/derivatives/integrals, historical primary sources, biological pathways/phenotypes, or authentic passage excerpts.
-2. ABSOLUTELY NO repeated questions or identical question stems.
-3. Provide 4 realistic, distinct options per question [Option A, Option B, Option C, Option D] with plausible distractors.
+2. ABSOLUTELY NO generic or repetitive placeholder text.
+3. Provide 4 realistic, distinct options per question [Option A, Option B, Option C, Option D].
 4. Distribute the correct answer index evenly across 0 (A), 1 (B), 2 (C), and 3 (D).
 5. Provide a detailed, multi-sentence College Board AP rubric explanation explaining explicitly WHY the correct answer is right and WHY distractors are wrong.
 6. Return ONLY a valid JSON array of 10 objects with keys: "id", "unit", "topic", "question", "options", "correct", "explanation". Do NOT wrap in markdown code blocks.`;
@@ -106,7 +106,7 @@ STRICT QUALITY REQUIREMENTS:
             return Array.isArray(parsed) ? parsed : [];
           })
           .catch((err) => {
-            console.warn(`[Exam Generator Batch ${i + 1}] AI call error:`, err);
+            console.warn(`[Exam Generator Batch ${i + 1}] AI call notice:`, err);
             return [];
           })
       );
@@ -115,34 +115,33 @@ STRICT QUALITY REQUIREMENTS:
     const chunkResults = await Promise.all(chunkPromises);
     const aiQuestions: any[] = chunkResults.flat();
 
-    // Deduplicate questions by question text / stem
     const uniqueQuestionsMap = new Map<string, any>();
 
-    // First add curated seed questions from official syllabus
-    const curatedSeed = syllabus.questions || [];
-    curatedSeed.forEach((q) => {
-      if (q.question && !uniqueQuestionsMap.has(q.question.trim())) {
-        uniqueQuestionsMap.set(q.question.trim(), q);
-      }
-    });
-
-    // Add AI generated questions if non-duplicate
+    // 1. Add AI generated questions
     aiQuestions.forEach((q) => {
       if (q && q.question && !uniqueQuestionsMap.has(q.question.trim())) {
         uniqueQuestionsMap.set(q.question.trim(), q);
       }
     });
 
-    // If total unique questions is under 50, generate unique topic-specific items across syllabus units
+    // 2. Add authentic curated seed questions from syllabus
+    const seedQuestions = syllabus.questions || [];
+    seedQuestions.forEach((q) => {
+      if (q && q.question && !uniqueQuestionsMap.has(q.question.trim())) {
+        uniqueQuestionsMap.set(q.question.trim(), q);
+      }
+    });
+
+    // 3. If under 50 items, fill using dynamic topic generator across syllabus units
     let genCount = uniqueQuestionsMap.size;
-    let unitLoopIdx = 0;
+    let uIdx = 0;
 
     while (uniqueQuestionsMap.size < 50 && syllabus.units.length > 0) {
-      const unit = syllabus.units[unitLoopIdx % syllabus.units.length];
+      const unit = syllabus.units[uIdx % syllabus.units.length];
       for (const topic of unit.topics) {
         if (uniqueQuestionsMap.size >= 50) break;
 
-        const generatedQ = generateSubjectTopicQuestion(
+        const dynamicQ = generateSubjectTopicQuestion(
           syllabus.name,
           syllabus.category,
           unit,
@@ -150,17 +149,16 @@ STRICT QUALITY REQUIREMENTS:
           genCount
         );
 
-        if (!uniqueQuestionsMap.has(generatedQ.question.trim())) {
-          uniqueQuestionsMap.set(generatedQ.question.trim(), generatedQ);
+        if (!uniqueQuestionsMap.has(dynamicQ.question.trim())) {
+          uniqueQuestionsMap.set(dynamicQ.question.trim(), dynamicQ);
           genCount++;
         }
       }
-      unitLoopIdx++;
+      uIdx++;
     }
 
     const finalQuestionsList = Array.from(uniqueQuestionsMap.values()).slice(0, 50);
 
-    // Assign sequential numbers and format output
     const formatted = finalQuestionsList.map((q: any, idx: number) => ({
       id: q.id || `ai-${subjectSlug}-q${idx + 1}`,
       number: idx + 1,
