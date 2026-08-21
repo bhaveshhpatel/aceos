@@ -24,24 +24,24 @@
     },
     "exam_generation": {
       "provider": "openrouter",
-      "model": "meta-llama/llama-3.3-70b-instruct",
+      "model": "meta-llama/llama-3.3-70b-instruct:free",
       "max_tokens": 3000,
       "temperature": 0.3,
       "reasoning": "Generating full-length 50-question AP exams requires fast, high-token model via OpenRouter"
     },
     "wrong_answer_explainer": {
-      "provider": "openrouter",
-      "model": "meta-llama/llama-3.3-70b-instruct",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
       "max_tokens": 800,
       "temperature": 0.4,
-      "reasoning": "Explanations need speed via OpenRouter Llama 3.3"
+      "reasoning": "Explanations need speed, not maximum accuracy — Groq latency wins here"
     },
     "study_plan_generation": {
-      "provider": "openrouter",
-      "model": "meta-llama/llama-3.3-70b-instruct",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
       "max_tokens": 1200,
       "temperature": 0.3,
-      "reasoning": "Study plans are structured and benefit from OpenRouter speed"
+      "reasoning": "Study plans are structured and benefit from Groq speed"
     },
     "score_prediction": {
       "provider": "openai",
@@ -51,8 +51,8 @@
       "reasoning": "Score prediction needs determinism more than creativity"
     },
     "tutor_socratic": {
-      "provider": "openrouter",
-      "model": "meta-llama/llama-3.3-70b-instruct",
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
       "max_tokens": 600,
       "temperature": 0.5,
       "reasoning": "Tutor needs fast responses to maintain conversational flow"
@@ -88,7 +88,7 @@
     }
   },
   "provider_fallbacks": [
-    { "provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct" },
+    { "provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct:free" },
     { "provider": "groq", "model": "llama-3.3-70b-versatile" },
     { "provider": "google", "model": "gemini-2.5-flash" },
     { "provider": "nvidia", "model": "deepseek-ai/deepseek-v3" },
