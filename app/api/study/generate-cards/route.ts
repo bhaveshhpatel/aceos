@@ -62,7 +62,8 @@ REQUIREMENTS:
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const cleanJson = aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
+      const jsonMatch = aiRes.content.match(/\[[\s\S]*\]/);
+      const cleanJson = jsonMatch ? jsonMatch[0] : aiRes.content.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleanJson);
       if (Array.isArray(parsed) && parsed.length > 0) {
         generatedCards = parsed;
