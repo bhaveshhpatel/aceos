@@ -35,7 +35,7 @@ export default function StudyQueuePage() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [completed, setCompleted] = useState(false);
 
-  // Fetch student enrolled subjects or default to all catalog subjects, checking query params first
+  // Read URL params and fetch enrolled subjects on mount
   useEffect(() => {
     async function fetchSubjects() {
       let initialSubjectFromUrl = '';
@@ -83,8 +83,6 @@ export default function StudyQueuePage() {
 
       if (initialSubjectFromUrl && OFFICIAL_AP_SYLLABI[initialSubjectFromUrl]) {
         setSelectedSlug(initialSubjectFromUrl);
-      } else if (activeList.length > 0) {
-        setSelectedSlug(activeList[0].slug);
       }
     }
 
