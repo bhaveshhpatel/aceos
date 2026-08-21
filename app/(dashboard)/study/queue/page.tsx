@@ -16,9 +16,20 @@ interface CardItem {
   initialState: FSRSCardState;
 }
 
+function getInitialSubjectSlug(): string {
+  if (typeof window !== 'undefined') {
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('subject') || params.get('subject_slug');
+    if (slug && OFFICIAL_AP_SYLLABI[slug]) {
+      return slug;
+    }
+  }
+  return 'ap-chemistry';
+}
+
 export default function StudyQueuePage() {
   const [enrolledSubjects, setEnrolledSubjects] = useState<Array<{ name: string; slug: string }>>([]);
-  const [selectedSlug, setSelectedSlug] = useState<string>('ap-chemistry');
+  const [selectedSlug, setSelectedSlug] = useState<string>(getInitialSubjectSlug);
   const [cards, setCards] = useState<CardItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
