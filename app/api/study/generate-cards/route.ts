@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
+import { OFFICIAL_AP_SYLLABI, APUnitSyllabus } from '@/config/ap_syllabi';
 import { callAI } from '@/lib/ai/gateway';
 
 export const dynamic = 'force-dynamic';
+
+function generateSubjectTopicCard(
+  subjectName: string,
+  category: string,
+  unit: APUnitSyllabus,
+  topic: string,
+  index: number
+) {
+  let qText = '';
+  let aText = '';
+  let expText = '';
+
+  if (category === 'STEM') {
+    qText = `What fundamental AP principle or mathematical relationship governs ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}?`;
+    aText = `${topic} describes critical quantitative relationships, rate laws, or structural equilibrium parameters essential for ${subjectName}.`;
+    expText = `[College Board AP Rubric] ${topic} in ${unit.unitName} requires mastering core formulas, experimental design, and quantitative interpretations on the AP exam.`;
+  } else if (category === 'HUMANITIES') {
+    qText = `How did developments in ${topic} influence institutional or social structures during Unit ${unit.unitNumber}: ${unit.unitName}?`;
+    aText = `${topic} triggered significant political centralization, economic trade shift, or cultural reform within this period.`;
+    expText = `[College Board AP Rubric] ${topic} in ${unit.unitName} is evaluated on Section I and II of the ${subjectName} exam for historical causation and contextualization.`;
+  } else {
+    qText = `How does an author effectively develop a claim regarding ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}?`;
+    aText = `By integrating structured evidence, syntactical choice, and logical line of reasoning centered on ${topic}.`;
+    expText = `[College Board AP Rubric] ${topic} in ${unit.unitName} focuses on analyzing rhetorical strategies, thesis development, and argument cohesion.`;
+  }
+
+  return {
+    id: `card-${unit.unitNumber}-${index + 1}`,
+    unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
+    topic,
+    question: qText,
+    answer: aText,
+    explanation: expText,
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,9 +46,8 @@ export async function POST(req: NextRequest) {
 
     const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
 
-    // Request up to 50 cards via batched AI requests or dynamic syllabus topic recall generation
     const prompt = `You are an expert AP tutor for ${syllabus.name}.
-Generate 15 authentic, high-quality flashcards for high school AP students covering:
+Generate 15 authentic, high-quality flashcards for high school AP students covering key concepts:
 ${syllabus.units.map((u) => `- Unit ${u.unitNumber}: ${u.unitName} (${u.topics.join(', ')})`).join('\n')}
 
 REQUIREMENTS:
@@ -34,27 +68,27 @@ REQUIREMENTS:
         generatedCards = parsed;
       }
     } catch (aiErr) {
-      console.warn('[Card Generator AI Notice] Primary AI call returned fallback:', aiErr);
+      console.warn('[Card Generator AI Notice]:', aiErr);
     }
 
     const uniqueCardsMap = new Map<string, any>();
 
-    // Add seed cards
-    const seedCards = syllabus.flashcards || [];
-    seedCards.forEach((fc) => {
-      if (fc.question && !uniqueCardsMap.has(fc.question.trim())) {
-        uniqueCardsMap.set(fc.question.trim(), fc);
-      }
-    });
-
-    // Add AI cards
+    // 1. Add AI cards
     generatedCards.forEach((c) => {
       if (c && c.question && !uniqueCardsMap.has(c.question.trim())) {
         uniqueCardsMap.set(c.question.trim(), c);
       }
     });
 
-    // Fill up to 50 unique cards across syllabus topics if needed
+    // 2. Add seed cards from syllabus
+    const seedCards = syllabus.flashcards || [];
+    seedCards.forEach((fc) => {
+      if (fc && fc.question && !uniqueCardsMap.has(fc.question.trim())) {
+        uniqueCardsMap.set(fc.question.trim(), fc);
+      }
+    });
+
+    // 3. Fill up to 50 cards across topics
     let cardCount = uniqueCardsMap.size;
     let uIdx = 0;
 
@@ -63,16 +97,16 @@ REQUIREMENTS:
       for (const topic of unit.topics) {
         if (uniqueCardsMap.size >= 50) break;
 
-        const qText = `What is the fundamental AP principle governing ${topic} in Unit ${unit.unitNumber}: ${unit.unitName}?`;
-        if (!uniqueCardsMap.has(qText)) {
-          uniqueCardsMap.set(qText, {
-            id: `card-${subjectSlug}-${unit.unitNumber}-${cardCount + 1}`,
-            unit: `Unit ${unit.unitNumber}: ${unit.unitName}`,
-            topic,
-            question: qText,
-            answer: `${topic} dictates critical structural, quantitative, or historical relationships essential for ${syllabus.name}.`,
-            explanation: `[College Board AP Rubric] ${topic} in ${unit.unitName} requires mastering key definitions, mathematical relationships, and contextual applications tested on Section I and II of the official AP exam.`,
-          });
+        const dynamicCard = generateSubjectTopicCard(
+          syllabus.name,
+          syllabus.category,
+          unit,
+          topic,
+          cardCount
+        );
+
+        if (!uniqueCardsMap.has(dynamicCard.question.trim())) {
+          uniqueCardsMap.set(dynamicCard.question.trim(), dynamicCard);
           cardCount++;
         }
       }
