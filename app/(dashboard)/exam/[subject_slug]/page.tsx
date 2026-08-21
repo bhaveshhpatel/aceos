@@ -3,38 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SubjectSwitcher } from '@/components/SubjectSwitcher';
-
 import { OFFICIAL_AP_SYLLABI } from '@/config/ap_syllabi';
 
-function getExamQuestionsForSubject(subjectSlug: string) {
-  const syllabus = OFFICIAL_AP_SYLLABI[subjectSlug] || OFFICIAL_AP_SYLLABI['ap-chemistry'];
-  const list: Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number; explanation: string }> = [];
-
-  if (syllabus.questions && syllabus.questions.length > 0) {
-    syllabus.questions.forEach((q, idx) => {
-      list.push({
-        id: q.id,
-        number: idx + 1,
-        unit: q.unit,
-        topic: q.topic,
-        question: q.question,
-        options: q.options,
-        correct: q.correct,
-        explanation: q.explanation,
-      });
-    });
-  }
-
-  return list;
-}
-
 export default function ExamPracticePage({ params }: { params: { subject_slug: string } }) {
-  const [questions, setQuestions] = useState<Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number; explanation: string }>>(() => getExamQuestionsForSubject(params.subject_slug));
+  const [questions, setQuestions] = useState<
+    Array<{ id: string; number: number; unit: string; topic: string; question: string; options: string[]; correct: number; explanation: string }>
+  >([]);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [currentIdx, setCurrentIndex] = useState(0);
 
   useEffect(() => {
     async function loadAiQuestions() {
+      setLoadingQuestions(true);
       try {
         const res = await fetch('/api/exam/generate', {
           method: 'POST',
@@ -43,7 +23,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
         });
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.questions) && data.questions.length >= 3) {
+          if (Array.isArray(data.questions) && data.questions.length > 0) {
             const formatted = data.questions.map((q: any, idx: number) => ({
               id: q.id || `ai-${params.subject_slug}-${idx + 1}`,
               number: idx + 1,
@@ -51,7 +31,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
               topic: q.topic || 'AP Concept',
               question: q.question,
               options: q.options || ['Option A', 'Option B', 'Option C', 'Option D'],
-              correct: typeof q.correct === 'number' ? q.correct : (idx % 4),
+              correct: typeof q.correct === 'number' ? q.correct : idx % 4,
               explanation: q.explanation || 'Official AP Rubric Explanation.',
             }));
             setQuestions(formatted);
@@ -74,7 +54,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
-  const currentQ = questions[currentIdx] || questions[0];
+  const currentQ = questions[currentIdx];
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -94,6 +74,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
   }
 
   function handleSelectOption(optionIdx: number) {
+    if (!currentQ) return;
     setUserAnswers((prev) => ({ ...prev, [currentQ.id]: optionIdx }));
   }
 
@@ -149,6 +130,22 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
     }
   }
 
+  const subjectName = OFFICIAL_AP_SYLLABI[params.subject_slug]?.name || params.subject_slug.replace('-', ' ').toUpperCase();
+
+  if (loadingQuestions) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 text-slate-100 p-6">
+        <div className="space-y-4 text-center">
+          <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          <h2 className="text-xl font-bold">Generating 50 AP Exam Questions for {subjectName}...</h2>
+          <p className="text-sm text-slate-400">
+            Synthesizing College Board syllabus units into an official 50-item Bluebook™ exam simulation.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 text-slate-100">
       {/* Bluebook Exam Top Navigation Bar */}
@@ -158,7 +155,7 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
             Bluebook™ Practice Mode
           </span>
           <span className="text-sm font-semibold text-slate-300">
-            {params.subject_slug.replace('-', ' ').toUpperCase()}
+            {subjectName}
           </span>
           <SubjectSwitcher currentSlug={params.subject_slug} basePath="/exam" />
         </div>
@@ -191,54 +188,58 @@ export default function ExamPracticePage({ params }: { params: { subject_slug: s
       <div className="flex flex-1">
         {/* Question & Option Panel */}
         <main className="flex flex-1 flex-col justify-between p-4 sm:p-6">
-          <div className="mx-auto max-w-3xl space-y-4 w-full">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-slate-400 uppercase block">
-                  Question {currentQ.number} of {questions.length}
-                </span>
-                <span className="text-xs font-medium text-indigo-400 block">
-                  {currentQ.unit} — {currentQ.topic}
-                </span>
-              </div>
-              <button
-                onClick={() => toggleFlag(currentQ.id)}
-                className={`flex items-center space-x-1 text-xs font-semibold ${
-                  flagged[currentQ.id] ? 'text-amber-400' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>🚩</span>
-                <span>{flagged[currentQ.id] ? 'Flagged' : 'Mark'}</span>
-              </button>
-            </div>
-
-            <p className="text-base font-medium text-slate-100">{currentQ.question}</p>
-
-            <div className="space-y-2 pt-1">
-              {currentQ.options.map((opt, idx) => (
+          {currentQ ? (
+            <div className="mx-auto max-w-3xl space-y-4 w-full">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-semibold text-slate-400 uppercase block">
+                    Question {currentQ.number} of {questions.length}
+                  </span>
+                  <span className="text-xs font-medium text-indigo-400 block">
+                    {currentQ.unit} — {currentQ.topic}
+                  </span>
+                </div>
                 <button
-                  key={idx}
-                  onClick={() => handleSelectOption(idx)}
-                  className={`flex w-full items-center space-x-3 rounded-lg border p-3 text-left transition-all ${
-                    userAnswers[currentQ.id] === idx
-                      ? 'border-indigo-500 bg-indigo-950/60 ring-1 ring-indigo-500'
-                      : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+                  onClick={() => toggleFlag(currentQ.id)}
+                  className={`flex items-center space-x-1 text-xs font-semibold ${
+                    flagged[currentQ.id] ? 'text-amber-400' : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
+                  <span>🚩</span>
+                  <span>{flagged[currentQ.id] ? 'Flagged' : 'Mark'}</span>
+                </button>
+              </div>
+
+              <p className="text-base font-medium text-slate-100">{currentQ.question}</p>
+
+              <div className="space-y-2 pt-1">
+                {currentQ.options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectOption(idx)}
+                    className={`flex w-full items-center space-x-3 rounded-lg border p-3 text-left transition-all ${
                       userAnswers[currentQ.id] === idx
-                        ? 'border-indigo-500 bg-indigo-600 text-white'
-                        : 'border-slate-700 text-slate-400'
+                        ? 'border-indigo-500 bg-indigo-950/60 ring-1 ring-indigo-500'
+                        : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
                     }`}
                   >
-                    {String.fromCharCode(65 + idx)}
-                  </span>
-                  <span className="text-xs sm:text-sm text-slate-200">{opt}</span>
-                </button>
-              ))}
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border text-xs font-bold ${
+                        userAnswers[currentQ.id] === idx
+                          ? 'border-indigo-500 bg-indigo-600 text-white'
+                          : 'border-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {String.fromCharCode(65 + idx)}
+                    </span>
+                    <span className="text-xs sm:text-sm text-slate-200">{opt}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center text-slate-400 py-12">No questions available.</div>
+          )}
 
           {/* Bottom Control Bar */}
           <div className="mx-auto flex w-full max-w-3xl justify-between pt-4 border-t border-slate-800 mt-4">

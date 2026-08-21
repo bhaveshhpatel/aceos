@@ -1,16 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { DashboardSubjects } from '@/components/DashboardSubjects';
-
-function serviceClient() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-service-key';
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
-  return createServiceClient(
-    url,
-    serviceKey
-  );
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -18,13 +8,11 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const service = serviceClient();
-
   let firstName = 'Student';
   let enrolledSubjects: Array<{ id: string; name: string; slug: string; icon: string }> = [];
 
   if (user) {
-    const { data: student } = await service
+    const { data: student } = await supabase
       .from('students')
       .select('first_name')
       .eq('id', user.id)
@@ -34,7 +22,7 @@ export default async function DashboardPage() {
       firstName = student.first_name;
     }
 
-    const { data: studentSubjs } = await service
+    const { data: studentSubjs } = await supabase
       .from('student_subjects')
       .select('subject_id, subjects(id, name, slug, icon_name)')
       .eq('student_id', user.id);
