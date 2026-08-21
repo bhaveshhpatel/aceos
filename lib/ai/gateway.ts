@@ -104,7 +104,7 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
             Authorization: `Bearer ${primaryApiKey}`,
           },
           body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(10_000),
         },
         { retries: 2, backoffMs: 1000 }
       );
@@ -170,7 +170,7 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
                 Authorization: `Bearer ${apiKey}`,
               },
               body: JSON.stringify({ ...payload, model: fallback.model }),
-              signal: AbortSignal.timeout(30_000),
+              signal: AbortSignal.timeout(10_000),
             },
             { retries: 0, backoffMs: 500 }
           );

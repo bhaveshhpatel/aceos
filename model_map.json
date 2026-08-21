@@ -23,11 +23,11 @@
       "reasoning": "MCQ evaluation is lower stakes — mini is sufficient and cheaper"
     },
     "exam_generation": {
-      "provider": "openai",
-      "model": "gpt-4o-mini",
-      "max_tokens": 4000,
+      "provider": "openrouter",
+      "model": "meta-llama/llama-3.3-70b-instruct",
+      "max_tokens": 3000,
       "temperature": 0.3,
-      "reasoning": "Generating full-length 50-question AP exams requires large token budget"
+      "reasoning": "Generating full-length 50-question AP exams requires fast, high-token model via OpenRouter"
     },
     "wrong_answer_explainer": {
       "provider": "groq",
@@ -88,8 +88,8 @@
     }
   },
   "provider_fallbacks": [
-    { "provider": "groq", "model": "llama-3.3-70b-versatile" },
     { "provider": "openrouter", "model": "meta-llama/llama-3.3-70b-instruct" },
+    { "provider": "groq", "model": "llama-3.3-70b-versatile" },
     { "provider": "google", "model": "gemini-2.5-flash" },
     { "provider": "nvidia", "model": "deepseek-ai/deepseek-v3" },
     { "provider": "openai", "model": "gpt-4o-mini" }

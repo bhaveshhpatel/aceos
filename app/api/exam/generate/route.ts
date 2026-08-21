@@ -101,7 +101,8 @@ STRICT QUALITY REQUIREMENTS:
           messages: [{ role: 'user', content: chunkPrompt }],
         })
           .then((res) => {
-            const cleanJson = res.content.replace(/```json/g, '').replace(/```/g, '').trim();
+            const jsonMatch = res.content.match(/\[[\s\S]*\]/);
+            const cleanJson = jsonMatch ? jsonMatch[0] : res.content.replace(/```json/g, '').replace(/```/g, '').trim();
             const parsed = JSON.parse(cleanJson);
             return Array.isArray(parsed) ? parsed : [];
           })
