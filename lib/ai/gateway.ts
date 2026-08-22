@@ -95,14 +95,20 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
   // 1. If primary key is present, attempt primary request with built-in retries
   if (primaryApiKey) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${primaryApiKey}`,
+      };
+      if (routeConfig.provider === 'openrouter') {
+        headers['HTTP-Referer'] = process.env.NEXT_PUBLIC_APP_URL || 'https://aceos.app';
+        headers['X-Title'] = 'AceOS AP Platform';
+      }
+
       const response = await fetchWithRetry(
         `${primaryProviderConfig.base_url}/chat/completions`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${primaryApiKey}`,
-          },
+          headers,
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(30_000),
         },

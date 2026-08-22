@@ -136,7 +136,7 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         id: 'chem-q6',
         unit: 'Unit 9: Thermodynamics',
         topic: 'Gibbs Free Energy & Spontaneity',
-        question: 'A endothermic reaction (ΔH° > 0) has a positive entropy change (ΔS° > 0). Under what conditions will the reaction be thermodynamically favored (ΔG° < 0)?',
+        question: 'An endothermic reaction (ΔH° > 0) has a positive entropy change (ΔS° > 0). Under what conditions will the reaction be thermodynamically favored (ΔG° < 0)?',
         options: [
           'Only at sufficiently high temperatures where TΔS° > ΔH°.',
           'Only at very low temperatures where ΔH° dominates.',
@@ -390,6 +390,34 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'Calhoun articulated the doctrine of nullification in response to the Tariff of Abominations, asserting state sovereignty over federal legislation.'
+      },
+      {
+        id: 'push-q5',
+        unit: 'Period 2: 1607–1754',
+        topic: 'Transatlantic Trade',
+        question: 'The British policy of "salutary neglect" toward the American colonies during the early 18th century contributed directly to:',
+        options: [
+          'The development of autonomous colonial legislative assemblies and independent economic traditions.',
+          'The rapid abolition of indentured servitude across the Chesapeake colonies.',
+          'The immediate military alliance between colonial governors and Spanish Florida.',
+          'The complete elimination of Atlantic mercantilist trade duties.'
+        ],
+        correct: 0,
+        explanation: 'Salutary neglect allowed British colonies to operate self-governing colonial assemblies (e.g. Virginia House of Burgesses) and develop local economic structures.'
+      },
+      {
+        id: 'push-q6',
+        unit: 'Period 6: 1865–1898',
+        topic: 'Gilded Age Industrialization',
+        question: 'During the late 19th century, labor unions such as the American Federation of Labor (AFL) under Samuel Gompers focused primarily on:',
+        options: [
+          'Obtaining pragmatic economic gains such as higher wages, shorter work hours, and safer working conditions.',
+          'Overthrowing industrial capitalism through political revolution.',
+          'Establishing state-controlled agricultural cooperatives.',
+          'Promoting open-door immigration policies for unskilled factory labor.'
+        ],
+        correct: 0,
+        explanation: 'The AFL pursued "bread-and-butter" unionism, concentrating on immediate tangible economic goals for skilled craft workers.'
       }
     ],
     flashcards: [
@@ -480,6 +508,34 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'SA/V ratio for a sphere = (4πr^2)/(4/3 πr^3) = 3/r. For r=1, ratio = 3. For r=3, ratio = 1. Cell A ratio is 3x greater.'
+      },
+      {
+        id: 'bio-q4',
+        unit: 'Unit 3: Cellular Energetics',
+        topic: 'Photosynthesis & Electron Transport',
+        question: 'During the light-dependent reactions of photosynthesis, what is the immediate source of electrons used to re-reduce oxidized chlorophyll P680 in Photosystem II?',
+        options: [
+          'The photolysis of water molecules (H2O -> 2H+ + 2e- + 1/2 O2).',
+          'The oxidation of NADPH in the Calvin cycle.',
+          'The breakdown of glucose in glycolysis.',
+          'The transport of ATP across the chloroplast membrane.'
+        ],
+        correct: 0,
+        explanation: 'Enzymes in Photosystem II split water molecules into protons, electrons, and oxygen gas. These electrons resupply P680+.'
+      },
+      {
+        id: 'bio-q5',
+        unit: 'Unit 4: Cell Communication',
+        topic: 'Signal Transduction Pathways',
+        question: 'A steroid hormone such as testosterone enters a target cell and binds to an intracellular receptor. What is the primary cellular mechanism triggered by this receptor-hormone complex?',
+        options: [
+          'Translocating into the nucleus to act as a transcription factor regulating gene expression.',
+          'Activating a phosphorylation cascade of cytoplasmic kinase enzymes.',
+          'Opening voltage-gated ion channels in the plasma membrane.',
+          'Increasing cAMP production via adenylyl cyclase.'
+        ],
+        correct: 0,
+        explanation: 'Steroid hormones are hydrophobic and cross lipid bilayers to bind intracellular receptors, entering the nucleus to directly regulate gene transcription.'
       }
     ],
     flashcards: [
@@ -549,6 +605,62 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'Indigenous populations lacked immunity to Afro-Eurasian pathogens (smallpox, measles), resulting in mortality rates estimated at 50%–90% in affected regions.'
+      },
+      {
+        id: 'wh-q3',
+        unit: 'Unit 3: Land-Based Empires (1450–1750)',
+        topic: 'Ottoman Devshirme & Janissary System',
+        question: 'The Ottoman Empire utilized the devshirme system primarily to achieve which administrative goal?',
+        options: [
+          'Create a loyal civil bureaucracy and elite military force (Janissaries) directly dependent on the Sultan rather than hereditary nobles.',
+          'Promote local democratic elections across Balkan provinces.',
+          'Convert all European trading partners to Sunni Islam.',
+          'Eliminate land-based revenue collection in favor of maritime trade tariffs.'
+        ],
+        correct: 0,
+        explanation: 'The devshirme system recruited non-Muslim Christian youths, training them for state administration or Janissary military service directly accountable to the Sultan.'
+      },
+      {
+        id: 'wh-q4',
+        unit: 'Unit 5: Revolutions (1750–1900)',
+        topic: 'Industrial Revolution & State-Guided Industrialization',
+        question: 'Meiji Japan’s rapid industrialization in the late 19th century differed from British industrialization primarily because Japanese industrialization:',
+        options: [
+          'Was heavily sponsored and coordinated by the state government to resist Western imperialism.',
+          'Relied entirely on private laissez-faire merchant capital without government intervention.',
+          'Abolished naval expansion in order to focus solely on silk agriculture.',
+          'Occurred without adopting any Western technology or factory machinery.'
+        ],
+        correct: 0,
+        explanation: 'Following the 1868 Meiji Restoration, the Japanese government actively built infrastructure, state factories, and military shipyards to modernize and preserve independence.'
+      },
+      {
+        id: 'wh-q5',
+        unit: 'Unit 1: The Global Tapestry (1200–1450)',
+        topic: 'Song Dynasty Economic & Bureaucratic Governance',
+        question: 'The Song Dynasty of China (960–1279) maintained political legitimacy and administrative stability primarily through:',
+        options: [
+          'A centralized meritocratic bureaucracy staffed by scholar-officials passing competitive civil service examinations.',
+          'Hereditary military warlords managing independent provincial fiefdoms.',
+          'Exclusive reliance on Nomadic steppe alliances and tributary gold payments.',
+          'The complete prohibition of paper currency and merchant guilds.'
+        ],
+        correct: 0,
+        explanation: 'The Song Dynasty expanded the Confucian civil service exam system, creating a scholar-gentry civil bureaucracy.'
+      },
+      {
+        id: 'wh-q6',
+        unit: 'Unit 8: Cold War and Decolonization (1900–Present)',
+        topic: 'Non-Aligned Movement',
+        question: 'The formation of the Non-Aligned Movement at the Bandung Conference (1955) represented an attempt by newly independent nations in Asia and Africa to:',
+        options: [
+          'Avoid official military alliances with either the United States or the Soviet Union during the Cold War.',
+          'Establish a unified Communist economic bloc across the Southern Hemisphere.',
+          'Join NATO to secure European nuclear guarantees.',
+          'Re-establish French and British colonial mandates across the Middle East.'
+        ],
+        correct: 0,
+        explanation: 'Led by leaders like Nehru (India) and Sukarno (Indonesia), the Non-Aligned Movement sought neutrality during superpower Cold War competition.'
       }
     ],
     flashcards: [
@@ -556,9 +668,17 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         id: 'wh-fc1',
         unit: 'Unit 3: Land-Based Empires',
         topic: 'Ottoman Devshirme System',
-        question: 'What was the purpose of the Ottoman Devshirme system?',
-        answer: 'To recruit non-Muslim Christian boys, convert them, and train them for military (Janissaries) or civil service.',
-        explanation: 'Ensured a loyal civil and military elite independent of hereditary nobility.'
+        question: 'What was the primary purpose of the Ottoman Devshirme system?',
+        answer: 'To recruit non-Muslim Christian boys, convert them, and train them for military (Janissaries) or civil administration directly loyal to the Sultan.',
+        explanation: 'Ensured a loyal elite independent of traditional hereditary aristocratic families.'
+      },
+      {
+        id: 'wh-fc2',
+        unit: 'Unit 2: Networks of Exchange',
+        topic: 'Silk Road Commerce',
+        question: 'What technological and financial innovations facilitated Silk Road trade under the Mongol Pax Mongolica?',
+        answer: 'Flying cash (paper credit), caravanserai inns, standardized passports (paiza), and bills of exchange.',
+        explanation: 'Reduced transaction risks and supported long-distance luxury trade across Eurasia.'
       }
     ],
     frqPrompts: [
@@ -616,6 +736,20 @@ export const OFFICIAL_AP_SYLLABI: Record<string, APCourseFullSyllabus> = {
         ],
         correct: 0,
         explanation: 'Parallel syntax coupled with imperative phrasing creates cadence and rhetorical urgency, energizing the audience.'
+      },
+      {
+        id: 'lang-q3',
+        unit: 'Unit 3: Claims and Argumentation',
+        topic: 'Defensible Thesis Statement',
+        question: 'Which of the following represents the most defensible thesis statement for an AP English Language argumentative essay regarding space exploration spending?',
+        options: [
+          'Although critics argue space exploration diverts resources from pressing terrestrial crises, federal funding for NASA remains essential because space innovation yields critical medical, environmental, and telecommunication technologies.',
+          'Space exploration is the coolest achievement in human history and should receive unlimited government funding.',
+          'Many people have different opinions about space exploration, but both sides make good points.',
+          'NASA was created during the Cold War to compete with the Soviet Union in orbit.'
+        ],
+        correct: 0,
+        explanation: 'A defensible thesis must take a specific, arguable stance, acknowledge complexity/counterargument, and outline a clear line of reasoning.'
       }
     ],
     flashcards: [

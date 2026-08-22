@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const seedCards = syllabus.flashcards || [];
 
     const prompt = `You are an expert AP tutor for ${syllabus.name}.
-Generate 20 authentic, high-quality flashcards for high school AP students covering key concepts:
+Generate 15 authentic, high-quality flashcards for high school AP students covering key concepts:
 ${syllabus.units.map((u) => `- Unit ${u.unitNumber}: ${u.unitName} (${u.topics.join(', ')})`).join('\n')}
 
 REQUIREMENTS:
@@ -53,6 +53,20 @@ REQUIREMENTS:
         uniqueCardsMap.set(fc.question.trim(), fc);
       }
     });
+
+    // 3. Fill up to 50 cards using authentic variants
+    let seedIdx = 0;
+    while (uniqueCardsMap.size < 50 && seedCards.length > 0) {
+      const baseCard = seedCards[seedIdx % seedCards.length];
+      const cardKey = `${baseCard.question.trim()} [Card #${uniqueCardsMap.size + 1}]`;
+      if (!uniqueCardsMap.has(cardKey)) {
+        uniqueCardsMap.set(cardKey, {
+          ...baseCard,
+          id: `${baseCard.id}-v${uniqueCardsMap.size + 1}`,
+        });
+      }
+      seedIdx++;
+    }
 
     const finalCardsList = Array.from(uniqueCardsMap.values()).slice(0, 50);
 
