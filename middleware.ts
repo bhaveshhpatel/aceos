@@ -44,6 +44,39 @@ export async function middleware(request: NextRequest) {
     request: { headers: request.headers },
   });
 
+  // Optimization: Early return for public paths to avoid blocking Supabase Auth API network calls
+  // Prevents Vercel 504 MIDDLEWARE_INVOCATION_TIMEOUT on public pages & static assets
+  if (isPublicPath(pathname)) {
+    if (pathname === '/signin' || pathname === '/signup') {
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get(name: string) {
+              return request.cookies.get(name)?.value;
+            },
+            set(name: string, value: string, options: CookieOptions) {
+              request.cookies.set({ name, value, ...options });
+              response = NextResponse.next({ request: { headers: request.headers } });
+              response.cookies.set({ name, value, ...options });
+            },
+            remove(name: string, options: CookieOptions) {
+              request.cookies.set({ name, value: '', ...options });
+              response = NextResponse.next({ request: { headers: request.headers } });
+              response.cookies.set({ name, value, ...options });
+            },
+          },
+        }
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+    }
+    return response;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -60,22 +93,13 @@ export async function middleware(request: NextRequest) {
         remove(name: string, options: CookieOptions) {
           request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({ request: { headers: request.headers } });
-          response.cookies.set({ name, value: '', ...options });
+          response.cookies.set({ name, value, ...options });
         },
       },
     }
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-
-  // Allow public paths through always
-  if (isPublicPath(pathname)) {
-    // Redirect signed-in users away from auth pages
-    if (user && (pathname === '/signin' || pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-    return response;
-  }
 
   // No session — redirect to sign in, preserving intended destination
   if (!user) {
