@@ -120,6 +120,7 @@ describe('callAI retry behaviour', () => {
     const result = await callAI({
       route: 'frq_grading',
       messages: [{ role: 'user', content: 'test' }],
+      retryBackoffMs: 0,
     });
 
     expect(mockFetch).toHaveBeenCalledTimes(3);
@@ -134,6 +135,7 @@ describe('callAI retry behaviour', () => {
       callAI({
         route: 'frq_grading',
         messages: [{ role: 'user', content: 'test' }],
+        retryBackoffMs: 0,
       })
     ).rejects.toThrow(AIGatewayError);
 
@@ -147,6 +149,7 @@ describe('callAI retry behaviour', () => {
       await callAI({
         route: 'frq_grading',
         messages: [{ role: 'user', content: 'test' }],
+        retryBackoffMs: 0,
       });
       expect.fail('Should have thrown');
     } catch (err) {
