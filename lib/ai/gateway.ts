@@ -18,6 +18,8 @@ export interface AIRequest {
   messages: { role: 'system' | 'user' | 'assistant'; content: string | unknown[] }[];
   stream?: boolean;
   metadata?: Record<string, string>;
+  /** Optional initial retry backoff in ms (defaults to 1000ms; set to 0 in tests to eliminate real-time delays) */
+  retryBackoffMs?: number;
 }
 
 export interface AIResponse {
@@ -92,6 +94,10 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
     stream: request.stream ?? false,
   };
 
+  // Configurable retry backoff: allows callers (or tests) to override default 1000ms backoff
+  // Performance impact: eliminates 9+ seconds of real-time sleep in test suites when retryBackoffMs is 0
+  const backoffMs = request.retryBackoffMs ?? 1000;
+
   // 1. If primary key is present, attempt primary request with built-in retries
   if (primaryApiKey) {
     try {
@@ -112,7 +118,7 @@ export async function callAI(request: AIRequest): Promise<AIResponse> {
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(30_000),
         },
-        { retries: 2, backoffMs: 1000 }
+        { retries: 2, backoffMs }
       );
 
       if (response.ok) {
